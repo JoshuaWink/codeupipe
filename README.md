@@ -1,8 +1,20 @@
 # codeupipe
 
-Python pipeline framework — composable State-Link-Chain pattern.
+Python pipeline framework — composable Payload-Filter-Pipeline pattern.
 
-Forked from [codeuchain](https://github.com/codeuchain/codeuchain) (Python implementation only).
+Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain) (Python only).
+
+## Core Concepts
+
+| Concept | Role |
+|---|---|
+| **Payload** | Immutable data container flowing through the pipeline |
+| **Filter** | Processing unit — takes a Payload in, returns a transformed Payload out |
+| **Pipeline** | Orchestrator — runs Filters in sequence with lifecycle hooks |
+| **Valve** | Conditional flow control — gates a Filter with a predicate |
+| **Tap** | Non-modifying observation point — inspect without changing |
+| **State** | Pipeline execution metadata — tracks what ran, what was skipped, errors |
+| **Hook** | Lifecycle hooks — before/after/on_error for pipeline execution |
 
 ## Install
 
@@ -13,28 +25,57 @@ pip install -e .
 ## Quick Start
 
 ```python
-from codeuchain import State, Link, Chain
+from codeupipe import Payload, Filter, Pipeline, Valve
 
-# Define links
-class CleanInput(Link):
-    async def call(self, ctx):
-        ctx = ctx.insert("text", ctx.get("text").strip())
-        return ctx
+# Define filters
+class CleanInput(Filter):
+    async def call(self, payload):
+        return payload.insert("text", payload.get("text").strip())
 
-class Validate(Link):
-    async def call(self, ctx):
-        if not ctx.get("text"):
+class Validate(Filter):
+    async def call(self, payload):
+        if not payload.get("text"):
             raise ValueError("Empty input")
-        return ctx
+        return payload
 
-# Build and run a chain
-chain = Chain()
-chain.add_link(CleanInput(name="clean"))
-chain.add_link(Validate(name="validate"))
+# Build a pipeline
+pipeline = Pipeline()
+pipeline.add_filter(CleanInput(), "clean")
+pipeline.add_filter(Validate(), "validate")
 
 import asyncio
-result = asyncio.run(chain.execute(State({"text": "  hello  "})))
+result = asyncio.run(pipeline.run(Payload({"text": "  hello  "})))
 print(result.get("text"))  # "hello"
+```
+
+## Valve (Conditional Flow)
+
+```python
+from codeupipe import Valve
+
+# Only run DiscountFilter if customer is premium
+pipeline.add_filter(
+    Valve("discount", DiscountFilter(), lambda p: p.get("tier") == "premium"),
+    "discount"
+)
+```
+
+## Tap (Observation)
+
+```python
+class AuditTap:
+    async def observe(self, payload):
+        print(f"Payload at this point: {payload.to_dict()}")
+
+pipeline.add_tap(AuditTap(), "audit")
+```
+
+## Execution State
+
+```python
+result = await pipeline.run(payload)
+print(pipeline.state.executed)  # ['clean', 'validate', 'discount']
+print(pipeline.state.skipped)   # ['admin_only']
 ```
 
 ## Test

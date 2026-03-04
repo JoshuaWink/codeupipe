@@ -5,6 +5,6 @@ Common utilities that get reused across projects.
 These are the helpers that make development easier.
 """
 
-from .error_handling import ErrorHandlingMixin, RetryLink
+from .error_handling import ErrorHandlingMixin, RetryFilter
 
-__all__ = ["ErrorHandlingMixin", "RetryLink"]
+__all__ = ["ErrorHandlingMixin", "RetryFilter"]

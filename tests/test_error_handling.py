@@ -1,14 +1,14 @@
 """
 Tests for Error Handling Utilities
 
-Testing ErrorHandlingMixin and RetryLink utilities.
+Testing ErrorHandlingMixin and RetryFilter utilities.
 """
 
 import pytest
 from typing import Dict, List, Callable, Tuple
-from codeuchain.core.state import State
-from codeuchain.utils.error_handling import ErrorHandlingMixin, RetryLink
-from .conftest import MockLink
+from codeupipe.core.payload import Payload
+from codeupipe.utils.error_handling import ErrorHandlingMixin, RetryFilter
+from .conftest import MockFilter
 
 
 class TestErrorHandlingMixin:
@@ -32,12 +32,12 @@ class TestErrorHandlingMixin:
         def error_condition(error: Exception) -> bool:
             return isinstance(error, ValueError)
 
-        mixin.on_error("source_link", "handler_link", error_condition)
+        mixin.on_error("source_filter", "handler_filter", error_condition)
 
         assert len(mixin.error_connections) == 1
         source, handler, condition = mixin.error_connections[0]
-        assert source == "source_link"
-        assert handler == "handler_link"
+        assert source == "source_filter"
+        assert handler == "handler_filter"
         assert condition == error_condition
 
     @pytest.mark.unit
@@ -46,25 +46,24 @@ class TestErrorHandlingMixin:
         """Test that error handlers are executed correctly."""
         mixin = ErrorHandlingMixin()
 
-        # Mock links dictionary
-        links = {
-            "error_handler": MockLink("mock", result_data={"error_handled": "processed"})
+        filters = {
+            "error_handler": MockFilter("mock", result_data={"error_handled": "processed"})
         }
-        mixin.links = links  # type: ignore
+        mixin.filters = filters  # type: ignore
 
         def value_error_condition(error: Exception) -> bool:
             return isinstance(error, ValueError)
 
-        mixin.on_error("failing_link", "error_handler", value_error_condition)
+        mixin.on_error("failing_filter", "error_handler", value_error_condition)
 
         async def run_test():
-            ctx = State({"input": "test"})
+            payload = Payload({"input": "test"})
             error = ValueError("Test error")
 
-            result_ctx = await mixin._handle_error("failing_link", error, ctx)
+            result = await mixin._handle_error("failing_filter", error, payload)
 
-            assert result_ctx is not None
-            assert result_ctx.get("error_handled") == "processed"
+            assert result is not None
+            assert result.get("error_handled") == "processed"
 
         import asyncio
         asyncio.run(run_test())
@@ -78,55 +77,55 @@ class TestErrorHandlingMixin:
         def type_error_condition(error: Exception) -> bool:
             return isinstance(error, TypeError)
 
-        mixin.on_error("failing_link", "error_handler", type_error_condition)
+        mixin.on_error("failing_filter", "error_handler", type_error_condition)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            error = ValueError("Test error")  # Different type than condition expects
+            payload = Payload({"input": "test"})
+            error = ValueError("Test error")
 
-            result_ctx = await mixin._handle_error("failing_link", error, ctx)
+            result = await mixin._handle_error("failing_filter", error, payload)
 
-            assert result_ctx is None
+            assert result is None
 
         import asyncio
         asyncio.run(run_test())
 
     @pytest.mark.unit
     @pytest.mark.utils
-    def test_missing_error_handler_link(self):
-        """Test behavior when error handler link doesn't exist."""
+    def test_missing_error_handler_filter(self):
+        """Test behavior when error handler filter doesn't exist."""
         mixin = ErrorHandlingMixin()
 
         def error_condition(error: Exception) -> bool:
             return True
 
-        mixin.on_error("failing_link", "nonexistent_handler", error_condition)
+        mixin.on_error("failing_filter", "nonexistent_handler", error_condition)
 
         async def run_test():
-            ctx = State({"input": "test"})
+            payload = Payload({"input": "test"})
             error = ValueError("Test error")
 
-            result_ctx = await mixin._handle_error("failing_link", error, ctx)
+            result = await mixin._handle_error("failing_filter", error, payload)
 
-            assert result_ctx is None
+            assert result is None
 
         import asyncio
         asyncio.run(run_test())
 
 
-class TestRetryLink:
-    """Test the RetryLink functionality."""
+class TestRetryFilter:
+    """Test the RetryFilter functionality."""
 
     @pytest.mark.unit
     @pytest.mark.utils
     def test_successful_first_attempt(self):
         """Test that successful execution doesn't retry."""
-        inner_link = MockLink("success", result_data={"result": "success"})
-        retry_link = RetryLink(inner_link, max_retries=3)
+        inner = MockFilter("success", result_data={"result": "success"})
+        retry = RetryFilter(inner, max_retries=3)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            result = await retry_link.call(ctx)
+            payload = Payload({"input": "test"})
+            result = await retry.call(payload)
 
             assert result.get("result") == "success"
             assert result.get("input") == "test"
@@ -137,23 +136,23 @@ class TestRetryLink:
     @pytest.mark.unit
     @pytest.mark.utils
     def test_retry_on_failure(self):
-        """Test retry behavior when inner link fails."""
+        """Test retry behavior when inner filter fails."""
         call_count = 0
 
-        class FailingThenSuccessLink:
-            async def call(self, ctx: State) -> State:
+        class FailingThenSuccessFilter:
+            async def call(self, payload: Payload) -> Payload:
                 nonlocal call_count
                 call_count += 1
                 if call_count < 3:
                     raise ValueError(f"Attempt {call_count} failed")
-                return ctx.insert("result", f"success_on_attempt_{call_count}")
+                return payload.insert("result", f"success_on_attempt_{call_count}")
 
-        inner_link = FailingThenSuccessLink()
-        retry_link = RetryLink(inner_link, max_retries=5)
+        inner = FailingThenSuccessFilter()
+        retry = RetryFilter(inner, max_retries=5)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            result = await retry_link.call(ctx)
+            payload = Payload({"input": "test"})
+            result = await retry.call(payload)
 
             assert call_count == 3
             assert result.get("result") == "success_on_attempt_3"
@@ -167,20 +166,20 @@ class TestRetryLink:
         """Test behavior when max retries is exceeded."""
         call_count = 0
 
-        class AlwaysFailingLink:
-            async def call(self, ctx: State) -> State:
+        class AlwaysFailingFilter:
+            async def call(self, payload: Payload) -> Payload:
                 nonlocal call_count
                 call_count += 1
                 raise ValueError(f"Attempt {call_count} failed")
 
-        inner_link = AlwaysFailingLink()
-        retry_link = RetryLink(inner_link, max_retries=2)
+        inner = AlwaysFailingFilter()
+        retry = RetryFilter(inner, max_retries=2)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            result = await retry_link.call(ctx)
+            payload = Payload({"input": "test"})
+            result = await retry.call(payload)
 
-            assert call_count == 2  # Should try max_retries times
+            assert call_count == 2
             assert result.get("error") == "Max retries: Attempt 2 failed"
             assert result.get("input") == "test"
 
@@ -193,20 +192,20 @@ class TestRetryLink:
         """Test behavior with zero max retries."""
         call_count = 0
 
-        class FailingLink:
-            async def call(self, ctx: State) -> State:
+        class FailingFilter:
+            async def call(self, payload: Payload) -> Payload:
                 nonlocal call_count
                 call_count += 1
                 raise ValueError("Failed")
 
-        inner_link = FailingLink()
-        retry_link = RetryLink(inner_link, max_retries=0)
+        inner = FailingFilter()
+        retry = RetryFilter(inner, max_retries=0)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            result = await retry_link.call(ctx)
+            payload = Payload({"input": "test"})
+            result = await retry.call(payload)
 
-            assert call_count == 1  # Should try once even with max_retries=0
+            assert call_count == 1
             assert result.get("error") == "Max retries: Failed"
             assert result.get("input") == "test"
 
@@ -219,66 +218,62 @@ class TestErrorHandlingIntegration:
 
     @pytest.mark.integration
     @pytest.mark.utils
-    def test_retry_with_error_handling_chain(self):
+    def test_retry_with_error_handling_pipeline(self):
         """Test combining retry logic with error handling."""
-        # Create a chain-like structure with error handling
-        class SimpleErrorHandlingChain(ErrorHandlingMixin):
+
+        class SimpleErrorHandlingPipeline(ErrorHandlingMixin):
             def __init__(self):
                 super().__init__()
-                self.links = {}
+                self.filters = {}
 
-            def add_link(self, name: str, link):
-                self.links[name] = link
+            def add_filter(self, name: str, filter):
+                self.filters[name] = filter
 
-            async def run_with_error_handling(self, link_name: str, ctx: State) -> State:
-                link = self.links.get(link_name)
-                if not link:
-                    raise ValueError(f"Link {link_name} not found")
+            async def run_with_error_handling(self, filter_name: str, payload: Payload) -> Payload:
+                f = self.filters.get(filter_name)
+                if not f:
+                    raise ValueError(f"Filter {filter_name} not found")
 
                 try:
-                    return await link.call(ctx)
+                    return await f.call(payload)
                 except Exception as e:
-                    error_ctx = await self._handle_error(link_name, e, ctx)
-                    if error_ctx:
-                        return error_ctx
+                    error_payload = await self._handle_error(filter_name, e, payload)
+                    if error_payload:
+                        return error_payload
                     raise
 
-        # Set up chain with error handling
-        chain = SimpleErrorHandlingChain()
+        pipeline = SimpleErrorHandlingPipeline()
 
-        # Add a retry link that will eventually succeed
         call_count = 0
-        class IntermittentFailingLink:
-            async def call(self, ctx: State) -> State:
+
+        class IntermittentFailingFilter:
+            async def call(self, payload: Payload) -> Payload:
                 nonlocal call_count
                 call_count += 1
                 if call_count < 2:
                     raise ConnectionError("Temporary network error")
-                return ctx.insert("result", "success")
+                return payload.insert("result", "success")
 
-        retry_link = RetryLink(IntermittentFailingLink(), max_retries=3)
-        chain.add_link("unreliable_service", retry_link)
+        retry_filter = RetryFilter(IntermittentFailingFilter(), max_retries=3)
+        pipeline.add_filter("unreliable_service", retry_filter)
 
-        # Add error handler
-        class ErrorHandlerLink:
-            async def call(self, ctx: State) -> State:
-                return ctx.insert("error_handled", True).insert("fallback_result", "default")
+        class ErrorHandlerFilter:
+            async def call(self, payload: Payload) -> Payload:
+                return payload.insert("error_handled", True).insert("fallback_result", "default")
 
-        chain.add_link("error_handler", ErrorHandlerLink())
+        pipeline.add_filter("error_handler", ErrorHandlerFilter())
 
-        # Register error handler for connection errors
         def connection_error_condition(error: Exception) -> bool:
             return isinstance(error, ConnectionError)
 
-        chain.on_error("unreliable_service", "error_handler", connection_error_condition)
+        pipeline.on_error("unreliable_service", "error_handler", connection_error_condition)
 
         async def run_test():
-            ctx = State({"input": "test"})
-            result = await chain.run_with_error_handling("unreliable_service", ctx)
+            payload = Payload({"input": "test"})
+            result = await pipeline.run_with_error_handling("unreliable_service", payload)
 
-            # Should have succeeded on retry
             assert result.get("result") == "success"
-            assert call_count == 2  # Failed once, succeeded on second try
+            assert call_count == 2
 
         import asyncio
         asyncio.run(run_test())
@@ -289,48 +284,27 @@ class TestErrorHandlingIntegration:
         """Test complex error handling with multiple handlers and conditions."""
         mixin = ErrorHandlingMixin()
 
-        # Mock different types of links
-        links = {
-            "validation_handler": MockLink("validation_error_handled", result_data={"result": "validation_error_handled"}),
-            "network_handler": MockLink("network_error_handled", result_data={"result": "network_error_handled"}),
-            "generic_handler": MockLink("generic_error_handled", result_data={"result": "generic_error_handled"})
+        filters = {
+            "validation_handler": MockFilter("validation_error_handled", result_data={"result": "validation_error_handled"}),
+            "network_handler": MockFilter("network_error_handled", result_data={"result": "network_error_handled"}),
+            "generic_handler": MockFilter("generic_error_handled", result_data={"result": "generic_error_handled"})
         }
-        mixin.links = links  # type: ignore
+        mixin.filters = filters  # type: ignore
 
-        # Register multiple error handlers with different conditions
-        def validation_error_condition(error: Exception) -> bool:
-            return "validation" in str(error).lower()
-
-        def network_error_condition(error: Exception) -> bool:
-            return isinstance(error, (ConnectionError, TimeoutError))
-
-        def generic_error_condition(error: Exception) -> bool:
-            return True  # Catch-all
-
-        mixin.on_error("processor", "validation_handler", validation_error_condition)
-        mixin.on_error("processor", "network_handler", network_error_condition)
-        mixin.on_error("processor", "generic_handler", generic_error_condition)
+        mixin.on_error("process", "validation_handler", lambda e: isinstance(e, ValueError))
+        mixin.on_error("process", "network_handler", lambda e: isinstance(e, ConnectionError))
+        mixin.on_error("process", "generic_handler", lambda e: True)
 
         async def run_test():
-            ctx = State({"input": "test"})
+            payload = Payload({"input": "test"})
 
-            # Test validation error
-            validation_error = ValueError("Validation failed: invalid input")
-            result1 = await mixin._handle_error("processor", validation_error, ctx)
-            assert result1 is not None
-            assert result1.get("result") == "validation_error_handled"
+            result = await mixin._handle_error("process", ValueError("bad"), payload)
+            assert result is not None
+            assert result.get("result") == "validation_error_handled"
 
-            # Test network error
-            network_error = ConnectionError("Network timeout")
-            result2 = await mixin._handle_error("processor", network_error, ctx)
-            assert result2 is not None
-            assert result2.get("result") == "network_error_handled"
-
-            # Test generic error
-            generic_error = RuntimeError("Unexpected error")
-            result3 = await mixin._handle_error("processor", generic_error, ctx)
-            assert result3 is not None
-            assert result3.get("result") == "generic_error_handled"
+            result = await mixin._handle_error("process", ConnectionError("down"), payload)
+            assert result is not None
+            assert result.get("result") == "network_error_handled"
 
         import asyncio
         asyncio.run(run_test())

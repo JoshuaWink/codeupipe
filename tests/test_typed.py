@@ -1,13 +1,13 @@
 """
 Typed Tests for Opt-in Generics
-Enhanced with comprehensive testing of generic type features.
+Testing generic type features with codeupipe.
 """
 
 from typing import List, TypedDict, Optional
 
 import pytest
 
-from codeuchain.core import Chain, State, Link
+from codeupipe.core import Pipeline, Payload, Filter
 
 
 class InputData(TypedDict):
@@ -19,53 +19,52 @@ class OutputData(InputData):
     result: float
 
 
-class SumLink(Link[InputData, OutputData]):
-    async def call(self, ctx: State[InputData]) -> State[OutputData]:
-        numbers = ctx.get("numbers") or []
+class SumFilter(Filter[InputData, OutputData]):
+    async def call(self, payload: Payload[InputData]) -> Payload[OutputData]:
+        numbers = payload.get("numbers") or []
         total = sum(numbers)
-        # Use insert_as to evolve the type from InputData to OutputData
-        return ctx.insert_as("result", float(total))  # type: ignore
+        return payload.insert_as("result", float(total))  # type: ignore
 
 
 class TestTypedBasics:
     @pytest.mark.unit
-    def test_typed_state_creation(self):
-        """Test creating a typed state."""
+    def test_typed_payload_creation(self):
+        """Test creating a typed payload."""
         data: InputData = {"numbers": [1, 2, 3], "operation": "sum"}
-        ctx: State[InputData] = State(data)
-        assert ctx.get("numbers") == [1, 2, 3]
+        p: Payload[InputData] = Payload(data)
+        assert p.get("numbers") == [1, 2, 3]
 
     @pytest.mark.unit
-    def test_typed_link_execution(self):
-        """Test executing a typed link."""
-        link = SumLink()
+    def test_typed_filter_execution(self):
+        """Test executing a typed filter."""
+        f = SumFilter()
         input_data: InputData = {"numbers": [1, 2, 3, 4], "operation": "sum"}
-        ctx: State[InputData] = State(input_data)
+        p: Payload[InputData] = Payload(input_data)
 
         import asyncio
-        result_ctx = asyncio.run(link.call(ctx))
-        assert result_ctx.get("result") == 10.0
+        result = asyncio.run(f.call(p))
+        assert result.get("result") == 10.0
 
     @pytest.mark.unit
-    def test_typed_chain_execution(self):
-        """Test executing a typed chain."""
-        chain: Chain[InputData, OutputData] = Chain()
-        chain.add_link(SumLink(), "sum")
+    def test_typed_pipeline_execution(self):
+        """Test executing a typed pipeline."""
+        pipeline: Pipeline[InputData, OutputData] = Pipeline()
+        pipeline.add_filter(SumFilter(), "sum")
 
         input_data: InputData = {"numbers": [2, 4, 6, 8], "operation": "stats"}
-        ctx: State[InputData] = State(input_data)
+        p: Payload[InputData] = Payload(input_data)
 
         import asyncio
-        result_ctx = asyncio.run(chain.run(ctx))
-        assert result_ctx.get("result") == 20.0
+        result = asyncio.run(pipeline.run(p))
+        assert result.get("result") == 20.0
 
 
 class TestGenericTypeEvolution:
     """Test generic type evolution features."""
 
     @pytest.mark.unit
-    def test_state_type_evolution(self):
-        """Test that State supports type evolution with insert_as."""
+    def test_payload_type_evolution(self):
+        """Test that Payload supports type evolution with insert_as."""
 
         class InitialData(TypedDict):
             name: str
@@ -75,57 +74,50 @@ class TestGenericTypeEvolution:
             age: int
 
         initial: InitialData = {"name": "Alice"}
-        ctx: State[InitialData] = State(initial)
+        p: Payload[InitialData] = Payload(initial)
 
-        # Evolve the state type
-        evolved_ctx = ctx.insert_as("age", 30)
+        evolved = p.insert_as("age", 30)
 
-        # Verify the evolution worked
-        assert evolved_ctx.get("name") == "Alice"
-        assert evolved_ctx.get("age") == 30
+        assert evolved.get("name") == "Alice"
+        assert evolved.get("age") == 30
 
     @pytest.mark.unit
-    def test_generic_state_operations(self):
-        """Test generic State operations maintain type safety."""
+    def test_generic_payload_operations(self):
+        """Test generic Payload operations maintain type safety."""
 
         class TestData(TypedDict):
             value: int
 
         data: TestData = {"value": 42}
-        ctx: State[TestData] = State(data)
+        p: Payload[TestData] = Payload(data)
 
-        # Test get operation
-        assert ctx.get("value") == 42
-        assert ctx.get("missing") is None
+        assert p.get("value") == 42
+        assert p.get("missing") is None
 
-        # Test insert operation
-        new_ctx = ctx.insert("new_field", "test")
-        assert new_ctx.get("value") == 42
-        assert new_ctx.get("new_field") == "test"
+        new_p = p.insert("new_field", "test")
+        assert new_p.get("value") == 42
+        assert new_p.get("new_field") == "test"
 
-        # Test merge operation
         other_data: TestData = {"value": 100}
-        other_ctx: State[TestData] = State(other_data)
-        merged_ctx = ctx.merge(other_ctx)
-        assert merged_ctx.get("value") == 100  # other_ctx takes precedence
+        other_p: Payload[TestData] = Payload(other_data)
+        merged = p.merge(other_p)
+        assert merged.get("value") == 100
 
     @pytest.mark.unit
-    def test_mutable_state_generic(self):
-        """Test MutableState with generic typing."""
+    def test_mutable_payload_generic(self):
+        """Test MutablePayload with generic typing."""
 
         class TestData(TypedDict):
             counter: int
 
         data: TestData = {"counter": 0}
-        mutable_ctx = State(data).with_mutation()
+        mutable = Payload(data).with_mutation()
 
-        # Test mutable operations
-        mutable_ctx.set("counter", 5)  # type: ignore
-        assert mutable_ctx.get("counter") == 5
+        mutable.set("counter", 5)  # type: ignore
+        assert mutable.get("counter") == 5
 
-        # Test conversion back to immutable
-        immutable_ctx = mutable_ctx.to_immutable()  # type: ignore
-        assert immutable_ctx.get("counter") == 5
+        immutable = mutable.to_immutable()  # type: ignore
+        assert immutable.get("counter") == 5
 
 
 class TestTypedWorkflows:
@@ -148,34 +140,32 @@ class TestTypedWorkflows:
             sum: int
             average: float
 
-        class ParseLink(Link[RawData, ParsedData]):
-            async def call(self, ctx: State[RawData]) -> State[ParsedData]:
-                raw_values = ctx.get("raw_values") or []
+        class ParseFilter(Filter[RawData, ParsedData]):
+            async def call(self, payload: Payload[RawData]) -> Payload[ParsedData]:
+                raw_values = payload.get("raw_values") or []
                 parsed_numbers = [int(x) for x in raw_values if x.isdigit()]
-                return ctx.insert_as("parsed_numbers", parsed_numbers)  # type: ignore
+                return payload.insert_as("parsed_numbers", parsed_numbers)  # type: ignore
 
-        class ProcessLink(Link[ParsedData, ProcessedData]):
-            async def call(self, ctx: State[ParsedData]) -> State[ProcessedData]:
-                numbers = ctx.get("parsed_numbers") or []
+        class ProcessFilter(Filter[ParsedData, ProcessedData]):
+            async def call(self, payload: Payload[ParsedData]) -> Payload[ProcessedData]:
+                numbers = payload.get("parsed_numbers") or []
                 total = sum(numbers)
                 avg = total / len(numbers) if numbers else 0.0
-                return ctx.insert_as("sum", total).insert_as("average", avg)  # type: ignore
+                return payload.insert_as("sum", total).insert_as("average", avg)  # type: ignore
 
-        # Create and execute the pipeline
-        chain: Chain = Chain()  # Use untyped chain for flexibility
-        chain.add_link(ParseLink(), "parse")
-        chain.add_link(ProcessLink(), "process")
+        pipeline: Pipeline = Pipeline()
+        pipeline.add_filter(ParseFilter(), "parse")
+        pipeline.add_filter(ProcessFilter(), "process")
 
         input_data: RawData = {"raw_values": ["1", "2", "3", "4", "5"]}
-        ctx: State[RawData] = State(input_data)
+        p: Payload[RawData] = Payload(input_data)
 
         import asyncio
-        result_ctx = asyncio.run(chain.run(ctx))
+        result = asyncio.run(pipeline.run(p))
 
-        # Verify results
-        assert result_ctx.get("parsed_numbers") == [1, 2, 3, 4, 5]
-        assert result_ctx.get("sum") == 15
-        assert result_ctx.get("average") == 3.0
+        assert result.get("parsed_numbers") == [1, 2, 3, 4, 5]
+        assert result.get("sum") == 15
+        assert result.get("average") == 3.0
 
     @pytest.mark.unit
     def test_typed_error_handling(self):
@@ -188,59 +178,56 @@ class TestTypedWorkflows:
             value: Optional[int]
             error: Optional[str]
 
-        class ValidateLink(Link[InputData, OutputData]):
-            async def call(self, ctx: State[InputData]) -> State[OutputData]:
-                value = ctx.get("value")
+        class ValidateFilter(Filter[InputData, OutputData]):
+            async def call(self, payload: Payload[InputData]) -> Payload[OutputData]:
+                value = payload.get("value")
                 if value is None:
-                    return ctx.insert_as("error", "Value is required")  # type: ignore
+                    return payload.insert_as("error", "Value is required")  # type: ignore
                 if not isinstance(value, int):
-                    return ctx.insert_as("error", "Value must be an integer")  # type: ignore
+                    return payload.insert_as("error", "Value must be an integer")  # type: ignore
                 if value < 0:
-                    return ctx.insert_as("error", "Value must be non-negative")  # type: ignore
-                return ctx.insert_as("error", None)  # type: ignore
+                    return payload.insert_as("error", "Value must be non-negative")  # type: ignore
+                return payload.insert_as("error", None)  # type: ignore
 
-        # Test valid input
         valid_input: InputData = {"value": 42}
-        ctx: State[InputData] = State(valid_input)
+        p: Payload[InputData] = Payload(valid_input)
 
-        link = ValidateLink()
+        f = ValidateFilter()
         import asyncio
-        result_ctx = asyncio.run(link.call(ctx))
-        assert result_ctx.get("error") is None
+        result = asyncio.run(f.call(p))
+        assert result.get("error") is None
 
-        # Test invalid input
         invalid_input: InputData = {"value": -1}
-        ctx2: State[InputData] = State(invalid_input)
-        result_ctx2 = asyncio.run(link.call(ctx2))
-        assert result_ctx2.get("error") == "Value must be non-negative"
+        p2: Payload[InputData] = Payload(invalid_input)
+        result2 = asyncio.run(f.call(p2))
+        assert result2.get("error") == "Value must be non-negative"
 
 
 class TestBackwardCompatibility:
-    """Test that generic enhancements don't break existing untyped code."""
+    """Test that generic enhancements don't break untyped code."""
 
     @pytest.mark.unit
-    def test_untyped_state_still_works(self):
-        """Test that untyped State usage still works."""
-        ctx = State({"key": "value"})
-        assert ctx.get("key") == "value"
+    def test_untyped_payload_still_works(self):
+        """Test that untyped Payload usage still works."""
+        p = Payload({"key": "value"})
+        assert p.get("key") == "value"
 
-        new_ctx = ctx.insert("new_key", "new_value")
-        assert new_ctx.get("new_key") == "new_value"
+        new_p = p.insert("new_key", "new_value")
+        assert new_p.get("new_key") == "new_value"
 
     @pytest.mark.unit
-    def test_mixed_typed_untyped_chains(self):
-        """Test mixing typed and untyped components in chains."""
+    def test_mixed_typed_untyped_pipelines(self):
+        """Test mixing typed and untyped components in pipelines."""
 
-        class SimpleLink(Link):
-            async def call(self, ctx: State) -> State:
-                value = ctx.get("input") or 0
-                return ctx.insert("output", value * 2)
+        class SimpleFilter(Filter):
+            async def call(self, payload: Payload) -> Payload:
+                value = payload.get("input") or 0
+                return payload.insert("output", value * 2)
 
-        # Create a chain with mixed typing
-        chain = Chain()  # Untyped chain
-        chain.add_link(SimpleLink(), "double")
+        pipeline = Pipeline()
+        pipeline.add_filter(SimpleFilter(), "double")
 
-        ctx = State({"input": 5})
+        p = Payload({"input": 5})
         import asyncio
-        result_ctx = asyncio.run(chain.run(ctx))
-        assert result_ctx.get("output") == 10
+        result = asyncio.run(pipeline.run(p))
+        assert result.get("output") == 10

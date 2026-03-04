@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codeupipe"
 version = "0.1.0"
-description = "Python pipeline framework — composable State-Link-Chain pattern"
+description = "Python pipeline framework — composable Payload-Filter-Pipeline pattern"
 authors = [{name = "Joshua Wink"}]
 dependencies = []  # Pure Python - zero external dependencies!
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["codeuchain*"]
+include = ["codeupipe*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

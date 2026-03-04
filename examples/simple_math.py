@@ -1,8 +1,7 @@
 """
-Simple Example: Math Chain Processing
+Simple Example: Math Pipeline
 
-Demonstrates modular chain processing with math links and hook.
-Shows the new modular structure: core protocols, component implementations.
+Demonstrates modular pipeline processing with math filters, taps, and hooks.
 """
 
 import sys
@@ -10,26 +9,28 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import asyncio
-from codeuchain.core import State
-from components.chains import BasicChain
-from components.links import MathLink
-from components.hook import LoggingHook
+from codeupipe.core import Payload, Pipeline, Valve
+from components.filters import MathFilter
+from components.hooks import LoggingHook
+from components.taps import PrintTap
 
 
 async def main():
-    # Set up the chain using component implementations
-    chain = BasicChain()
-    chain.add_link("sum", MathLink("sum"))
-    chain.add_link("mean", MathLink("mean"))
-    chain.connect("sum", "mean", lambda ctx: ctx.get("result") is not None)
-    chain.use_hook(LoggingHook())
-    
-    # Run with initial state
-    ctx = State({"numbers": [1, 2, 3, 4, 5]})
-    result = await chain.run(ctx)
-    
-    print(f"Final result: {result.get('result')}")  # Mean: 3.0
-    print(f"Full state: {result.to_dict()}")  # Shows all data
+    pipeline = Pipeline()
+    pipeline.add_filter(MathFilter("sum"), "sum")
+    pipeline.add_filter(
+        Valve("mean", MathFilter("mean"), lambda p: p.get("result") is not None),
+        "mean"
+    )
+    pipeline.add_tap(PrintTap("RESULT"), "result_tap")
+    pipeline.use_hook(LoggingHook())
+
+    payload = Payload({"numbers": [1, 2, 3, 4, 5]})
+    result = await pipeline.run(payload)
+
+    print(f"Final result: {result.get('result')}")
+    print(f"Full payload: {result.to_dict()}")
+    print(f"Execution state: {pipeline.state}")
 
 
 if __name__ == "__main__":

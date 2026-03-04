@@ -1,12 +1,17 @@
 """
 Components Module: Reusable Implementations
 
-Concrete implementations that get swapped between projects.
-These are the building blocks humans compose into features.
+Concrete implementations for building pipelines.
 """
 
-from .links import IdentityLink, MathLink
-from .chains import BasicChain
-from .hook import LoggingHook, TimingHook
+from .filters import IdentityFilter, MathFilter
+from .pipelines import BasicPipeline
+from .hooks import LoggingHook, TimingHook
+from .taps import PrintTap
 
-__all__ = ["IdentityLink", "MathLink", "BasicChain", "LoggingHook", "TimingHook"]
+__all__ = [
+    "IdentityFilter", "MathFilter",
+    "BasicPipeline",
+    "LoggingHook", "TimingHook",
+    "PrintTap",
+]
