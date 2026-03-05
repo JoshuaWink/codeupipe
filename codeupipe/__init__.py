@@ -18,6 +18,8 @@ Core concepts:
 
 from .core import Payload, MutablePayload, Filter, StreamFilter, Pipeline, Valve, Tap, State, Hook
 from .utils import ErrorHandlingMixin, RetryFilter
+from .converter import load_config, DEFAULT_CONFIG, PATTERN_DEFAULTS
+from .converter.pipelines import build_export_pipeline, build_import_pipeline
 
 __version__ = "0.1.0"
 __all__ = [
@@ -27,4 +29,7 @@ __all__ = [
     "State", "Hook",
     # Utils
     "ErrorHandlingMixin", "RetryFilter",
+    # Converter
+    "load_config", "DEFAULT_CONFIG", "PATTERN_DEFAULTS",
+    "build_export_pipeline", "build_import_pipeline",
 ]
