@@ -93,6 +93,7 @@ tests/
 ├── test_docs_examples.py    # 37 tests (verifies CONCEPTS.md examples)
 ├── test_streaming.py        # 18 tests
 ├── test_sync_support.py     # 9 tests
+├── test_core_edge_cases.py  # 31 tests — core framework edge cases
 └── converter/
     ├── __init__.py
     ├── test_unit.py         # 36 tests — config, all 7 filters, log tap
@@ -371,7 +372,7 @@ pipeline.state.reset()            # clear everything for a fresh run
 ## Testing
 
 ```bash
-# Run all 144 tests
+# Run all 343 tests
 pytest
 
 # Run with verbose output
