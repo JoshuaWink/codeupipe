@@ -6,6 +6,7 @@ The foundation — protocols, abstract base classes, and fundamental types.
 
 from .payload import Payload, MutablePayload
 from .filter import Filter
+from .stream_filter import StreamFilter
 from .pipeline import Pipeline
 from .valve import Valve
 from .tap import Tap
@@ -14,6 +15,6 @@ from .hook import Hook
 
 __all__ = [
     "Payload", "MutablePayload",
-    "Filter", "Pipeline", "Valve", "Tap",
+    "Filter", "StreamFilter", "Pipeline", "Valve", "Tap",
     "State", "Hook",
 ]

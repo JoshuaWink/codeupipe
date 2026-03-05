@@ -6,6 +6,7 @@ when the predicate evaluates to True. Otherwise the payload passes through uncha
 Valves conform to the Filter protocol, so they compose seamlessly into Pipelines.
 """
 
+import inspect
 from typing import Callable, Generic, TypeVar
 from .payload import Payload
 from .filter import Filter
@@ -39,7 +40,10 @@ class Valve(Generic[TInput, TOutput]):
     async def call(self, payload: Payload[TInput]) -> Payload[TOutput]:
         """Execute the inner filter only if the predicate passes."""
         if self._predicate(payload):
-            return await self._inner.call(payload)
+            result = self._inner.call(payload)
+            if inspect.isawaitable(result):
+                result = await result
+            return result
         return payload  # type: ignore — pass through unchanged
 
     def __repr__(self) -> str:

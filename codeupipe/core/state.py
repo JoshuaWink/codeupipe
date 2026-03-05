@@ -27,6 +27,7 @@ class State:
         self.skipped: List[str] = []
         self.errors: List[Tuple[str, Exception]] = []
         self.metadata: Dict[str, Any] = {}
+        self.chunks_processed: Dict[str, int] = {}
 
     def mark_executed(self, name: str) -> None:
         """Record that a filter executed."""
@@ -35,6 +36,10 @@ class State:
     def mark_skipped(self, name: str) -> None:
         """Record that a filter was skipped."""
         self.skipped.append(name)
+
+    def increment_chunks(self, name: str, count: int = 1) -> None:
+        """Increment the chunk counter for a streaming step."""
+        self.chunks_processed[name] = self.chunks_processed.get(name, 0) + count
 
     def record_error(self, name: str, error: Exception) -> None:
         """Record an error from a filter."""
@@ -64,9 +69,10 @@ class State:
         self.skipped.clear()
         self.errors.clear()
         self.metadata.clear()
+        self.chunks_processed.clear()
 
     def __repr__(self) -> str:
         return (
             f"State(executed={self.executed}, skipped={self.skipped}, "
-            f"errors={len(self.errors)})"
+            f"errors={len(self.errors)}, chunks={self.chunks_processed})"
         )
