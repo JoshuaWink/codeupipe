@@ -19,7 +19,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Architecture Overview
 
-<!-- cup:ref file=codeupipe/__init__.py hash=7a603ab -->
+<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
 ```
 Payload (data)
    │
@@ -45,7 +45,7 @@ Pipeline.run(payload)  ──or──  Pipeline.stream(async_iter)
 
 ## Project Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=7a603ab -->
+<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
 
 ```
 codeupipe/

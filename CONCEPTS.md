@@ -739,7 +739,7 @@ asyncio.run(main())
 
 ## Quick Reference
 
-<!-- cup:ref file=codeupipe/__init__.py hash=7a603ab -->
+<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
 ```python
 from codeupipe import (
     Payload,           # immutable data container

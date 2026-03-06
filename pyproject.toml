@@ -1,15 +1,39 @@
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "codeupipe"
 version = "0.1.0"
 description = "Python pipeline framework — composable Payload-Filter-Pipeline pattern"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
 authors = [{name = "Joshua Wink"}]
-dependencies = []  # Pure Python - zero external dependencies!
+keywords = ["pipeline", "filter", "payload", "etl", "workflow", "streaming"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/codeuchain/codeupipe"
+Repository = "https://github.com/codeuchain/codeupipe"
+Issues = "https://github.com/codeuchain/codeupipe/issues"
+
 [project.scripts]
 cup = "codeupipe.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["codeupipe*"]
