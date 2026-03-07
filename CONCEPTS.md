@@ -35,7 +35,7 @@ State records what happened.
 Hooks attach lifecycle behaviour.
 ```
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=6ed16dd -->
 | Concept | Role |
 |---|---|
 | `Payload` | The data box moving through the pipe — immutable |
@@ -54,7 +54,7 @@ Hooks attach lifecycle behaviour.
 
 ## Payload
 
-<!-- cup:ref file=codeupipe/core/payload.py symbols=Payload hash=0a33b12 -->
+<!-- cup:ref file=codeupipe/core/payload.py symbols=Payload hash=87e463d -->
 
 **Immutable data container.** Every operation returns a fresh copy.
 
@@ -96,7 +96,7 @@ mut = p.with_mutation()   # → MutablePayload
 
 ## MutablePayload
 
-<!-- cup:ref file=codeupipe/core/payload.py symbols=MutablePayload hash=0a33b12 -->
+<!-- cup:ref file=codeupipe/core/payload.py symbols=MutablePayload hash=87e463d -->
 
 **Mutable sibling of Payload** — use inside a Filter when raw performance matters or when multiple keys need updating in one pass.
 
@@ -184,7 +184,7 @@ class NormalizeFilter:
 
 ## Pipeline
 
-<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=439c046 -->
+<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=8111ae2 -->
 
 **The orchestrator — sequences filters, taps, and valves.**
 
@@ -360,7 +360,7 @@ asyncio.run(main())
 
 ## State
 
-<!-- cup:ref file=codeupipe/core/state.py symbols=State hash=2cee84d -->
+<!-- cup:ref file=codeupipe/core/state.py symbols=State hash=c713e64 -->
 
 **Execution metadata — read after `pipeline.run()`.**
 
@@ -776,7 +776,7 @@ asyncio.run(main())
 
 ## Quick Reference
 
-<!-- cup:ref file=codeupipe/__init__.py hash=9b0673d -->
+<!-- cup:ref file=codeupipe/__init__.py hash=cc63942 -->
 ```python
 from codeupipe import (
     Payload,           # immutable data container

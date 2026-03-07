@@ -19,7 +19,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Architecture Overview
 
-<!-- cup:ref file=codeupipe/__init__.py hash=9b0673d -->
+<!-- cup:ref file=codeupipe/__init__.py hash=cc63942 -->
 ```
 Payload (data)
    │
@@ -53,7 +53,7 @@ Pipeline.run(payload)  ──or──  Pipeline.run_sync(payload)  ──or─�
 
 ## Project Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=9b0673d -->
+<!-- cup:ref file=codeupipe/__init__.py hash=cc63942 -->
 
 ```
 codeupipe/
@@ -114,10 +114,32 @@ codeupipe/
 │   ├── assemble_doc_report.py  # AssembleDocReport — build doc-check report
 │   └── doc_check_pipeline.py   # build_doc_check_pipeline()
 ├── testing.py               # Test utilities — run_filter, assert_payload, mock_filter, etc.
-├── cli.py                   # CLI entry point — cup new/list/bundle/lint/coverage/report/doc-check/run
+├── cli.py                   # CLI entry point — cup new/list/bundle/lint/coverage/report/doc-check/run/connect/describe
 ├── utils/
 │   ├── __init__.py
 │   └── error_handling.py    # ErrorHandlingMixin, RetryFilter
+├── connect/                 # Service connectors (Ring 8)
+│   ├── __init__.py          # Exports: ConnectorConfig, HttpConnector, discover, health
+│   ├── config.py            # ConnectorConfig, load_connector_configs, ConfigError
+│   ├── discovery.py         # discover_connectors, check_health
+│   └── http.py              # HttpConnector — built-in REST connector (urllib)
+├── deploy/                  # Deployment adapters (Ring 7)
+│   ├── __init__.py
+│   ├── adapter.py           # DeployTarget, DeployAdapter ABC
+│   ├── discovery.py         # find_adapters
+│   ├── docker.py            # DockerAdapter
+│   ├── handlers.py          # Serverless entry-point renderers
+│   ├── init.py              # cup init scaffolding
+│   ├── manifest.py          # cup.toml manifest — load & validate
+│   ├── netlify.py           # NetlifyAdapter
+│   ├── recipe.py            # Recipes — list, resolve, dependencies
+│   └── vercel.py            # VercelAdapter
+├── distribute/              # Distributed execution (Ring 7a)
+│   ├── __init__.py
+│   ├── checkpoint.py        # Checkpoint, CheckpointHook
+│   ├── remote.py            # RemoteFilter
+│   ├── source.py            # IterableSource, FileSource
+│   └── worker.py            # WorkerPool
 tests/
 ├── conftest.py              # Shared fixtures (pytest-asyncio strict mode)
 ├── test_payload.py          # 13 tests
@@ -187,7 +209,7 @@ README.md                    # Quick-start guide
 
 ## Core Types — Quick Reference
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=6ed16dd -->
 | Type | Kind | Purpose |
 |---|---|---|
 | `Payload[T]` | Class | Immutable data container. `.get()`, `.insert()`, `.merge()`, `.to_dict()`, `.with_mutation()` |

@@ -18,7 +18,7 @@ Quick-reference map of the project. Every path listed here is verified by `cup d
 
 ## Package Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=9b0673d -->
+<!-- cup:ref file=codeupipe/__init__.py hash=cc63942 -->
 ```
 codeupipe/
 ├── __init__.py              # Public API re-exports
@@ -32,7 +32,31 @@ codeupipe/
 │   ├── valve.py             # Valve — conditional gate
 │   ├── tap.py               # Tap Protocol — observation
 │   ├── state.py             # State — execution metadata
-│   └── hook.py              # Hook ABC — lifecycle
+│   ├── hook.py              # Hook ABC — lifecycle
+│   ├── event.py             # PipelineEvent, EventEmitter
+│   └── govern.py            # Schemas, contracts, audit, dead-letter
+│
+├── connect/                 # Service connectors (Ring 8)
+│   ├── config.py            # ConnectorConfig, load_connector_configs
+│   ├── discovery.py         # discover_connectors, check_health
+│   └── http.py              # HttpConnector — built-in REST connector
+│
+├── deploy/                  # Deployment adapters (Ring 7)
+│   ├── adapter.py           # DeployTarget, DeployAdapter ABC
+│   ├── discovery.py         # find_adapters
+│   ├── docker.py            # DockerAdapter
+│   ├── handlers.py          # Serverless handler renderers
+│   ├── init.py              # cup init scaffolding
+│   ├── manifest.py          # cup.toml manifest — load & validate
+│   ├── netlify.py           # NetlifyAdapter
+│   ├── recipe.py            # Recipes — list, resolve, dependencies
+│   └── vercel.py            # VercelAdapter
+│
+├── distribute/              # Distributed execution (Ring 7a)
+│   ├── checkpoint.py        # Checkpoint, CheckpointHook
+│   ├── remote.py            # RemoteFilter
+│   ├── source.py            # IterableSource, FileSource
+│   └── worker.py            # WorkerPool
 │
 ├── registry.py              # Registry, cup_component, default_registry
 │
@@ -53,7 +77,7 @@ codeupipe/
 │   └── (18 filter files)    # ScanDirectory, CheckNaming, etc.
 │
 ├── testing.py               # Test helpers — run_filter, assert_payload, etc.
-└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check/run
+└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check/run/connect/describe
 ```
 <!-- /cup:ref -->
 
@@ -61,7 +85,7 @@ codeupipe/
 
 ## Core Types
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=6ed16dd -->
 | Type | Source | Role |
 |------|--------|------|
 | `Payload` | core/payload.py | Immutable data container |
@@ -73,6 +97,105 @@ codeupipe/
 | `Tap` | core/tap.py | Read-only observer — `.observe(payload)` |
 | `State` | core/state.py | Execution metadata |
 | `Hook` | core/hook.py | Lifecycle — before / after / on_error |
+<!-- /cup:ref -->
+
+---
+
+## Govern (Ring 6)
+
+<!-- cup:ref file=codeupipe/core/event.py symbols=PipelineEvent,EventEmitter hash=d106174 -->
+<!-- cup:ref file=codeupipe/core/govern.py symbols=SchemaViolation,ContractViolation,PipelineTimeoutError,PayloadSchema,AuditEntry,AuditTrail,AuditHook,DeadLetterHandler,LogDeadLetterHandler hash=f98fbce -->
+| Type | Source | Role |
+|------|--------|------|
+| `PipelineEvent` | core/event.py | Typed event emitted by pipelines |
+| `EventEmitter` | core/event.py | Pub/sub event bus |
+| `PayloadSchema` | core/govern.py | Declarative payload validation |
+| `SchemaViolation` | core/govern.py | Schema check failure |
+| `ContractViolation` | core/govern.py | Pre/post-condition failure |
+| `PipelineTimeoutError` | core/govern.py | Timeout exceeded |
+| `AuditEntry` / `AuditTrail` | core/govern.py | Immutable audit log |
+| `AuditHook` | core/govern.py | Hook that records audit entries |
+| `DeadLetterHandler` | core/govern.py | Failed-payload routing ABC |
+| `LogDeadLetterHandler` | core/govern.py | Dead-letter → logger |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+
+---
+
+## Deploy (Ring 7)
+
+<!-- cup:ref file=codeupipe/deploy/__init__.py hash=7667652 -->
+<!-- cup:ref file=codeupipe/deploy/adapter.py symbols=DeployTarget,DeployAdapter hash=fb707c9 -->
+<!-- cup:ref file=codeupipe/deploy/discovery.py symbols=find_adapters hash=fbf6e3d -->
+<!-- cup:ref file=codeupipe/deploy/docker.py symbols=DockerAdapter hash=0235160 -->
+<!-- cup:ref file=codeupipe/deploy/handlers.py symbols=render_vercel_handler,render_netlify_handler,render_lambda_handler hash=33fb03d -->
+<!-- cup:ref file=codeupipe/deploy/init.py symbols=init_project,list_templates hash=d55f1d0 -->
+<!-- cup:ref file=codeupipe/deploy/manifest.py symbols=ManifestError,load_manifest hash=c46af7d -->
+<!-- cup:ref file=codeupipe/deploy/netlify.py symbols=NetlifyAdapter hash=5659642 -->
+<!-- cup:ref file=codeupipe/deploy/recipe.py symbols=RecipeError,list_recipes,resolve_recipe hash=6e84b7a -->
+<!-- cup:ref file=codeupipe/deploy/vercel.py symbols=VercelAdapter hash=33ddeb5 -->
+| Type | Source | Role |
+|------|--------|------|
+| `DeployTarget` | deploy/adapter.py | Enum — docker, vercel, netlify, lambda |
+| `DeployAdapter` | deploy/adapter.py | ABC — `prepare()`, `deploy()` |
+| `find_adapters` | deploy/discovery.py | Auto-discover platform adapters |
+| `DockerAdapter` | deploy/docker.py | Docker build + push |
+| `VercelAdapter` | deploy/vercel.py | Vercel deployment |
+| `NetlifyAdapter` | deploy/netlify.py | Netlify deployment |
+| `render_*_handler` | deploy/handlers.py | Serverless entry-point renderers |
+| `init_project` | deploy/init.py | `cup init` scaffolding |
+| `load_manifest` | deploy/manifest.py | Parse & validate cup.toml |
+| `list_recipes` / `resolve_recipe` | deploy/recipe.py | Recipe system |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+
+---
+
+## Distribute (Ring 7a)
+
+<!-- cup:ref file=codeupipe/distribute/__init__.py hash=59ccacc -->
+<!-- cup:ref file=codeupipe/distribute/checkpoint.py symbols=Checkpoint,CheckpointHook hash=c982735 -->
+<!-- cup:ref file=codeupipe/distribute/remote.py symbols=RemoteFilter hash=b17b607 -->
+<!-- cup:ref file=codeupipe/distribute/source.py symbols=IterableSource,FileSource hash=192a21a -->
+<!-- cup:ref file=codeupipe/distribute/worker.py symbols=WorkerPool hash=362b51b -->
+| Type | Source | Role |
+|------|--------|------|
+| `Checkpoint` / `CheckpointHook` | distribute/checkpoint.py | Save/resume pipeline progress |
+| `RemoteFilter` | distribute/remote.py | Execute a filter on a remote worker |
+| `IterableSource` / `FileSource` | distribute/source.py | Stream data into pipelines |
+| `WorkerPool` | distribute/worker.py | Multi-process execution pool |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+
+---
+
+## Connect (Ring 8)
+
+<!-- cup:ref file=codeupipe/connect/__init__.py hash=5c80122 -->
+<!-- cup:ref file=codeupipe/connect/config.py symbols=ConfigError,ConnectorConfig,load_connector_configs hash=693d3be -->
+<!-- cup:ref file=codeupipe/connect/discovery.py symbols=discover_connectors,check_health hash=e9fe17c -->
+<!-- cup:ref file=codeupipe/connect/http.py symbols=HttpConnector hash=2bf804b -->
+| Type | Source | Role |
+|------|--------|------|
+| `ConnectorConfig` | connect/config.py | Parse `[connectors.*]` from cup.toml |
+| `load_connector_configs` | connect/config.py | Load all connector configs |
+| `discover_connectors` | connect/discovery.py | Entry-point discovery + registration |
+| `check_health` | connect/discovery.py | Pre-flight health checks |
+| `HttpConnector` | connect/http.py | Built-in REST connector (urllib, zero deps) |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
 <!-- /cup:ref -->
 
 ---
@@ -143,7 +266,7 @@ codeupipe/
 
 ## CLI
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=12f4911 -->
+<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=3acb165 -->
 | Command | Purpose |
 |---------|---------||
 | `cup new <type> <name> [path]` | Scaffold component + test |
@@ -154,6 +277,9 @@ codeupipe/
 | `cup report <path>` | Health report |
 | `cup doc-check [path]` | Doc freshness check |
 | `cup run <config>` | Execute a pipeline from config (TOML/JSON) |
+| `cup connect --list/--health` | List connectors / run health checks |
+| `cup describe <config>` | Inspect pipeline inputs, outputs, steps |
+| `--json` (global) | Machine-readable JSON output |
 <!-- /cup:ref -->
 
 ---
@@ -173,7 +299,7 @@ codeupipe/
 
 ## Tests
 
-978 tests across 52 files. Full suite: `pytest`
+1285 tests across 53+ files. Full suite: `pytest`
 
 ---
 

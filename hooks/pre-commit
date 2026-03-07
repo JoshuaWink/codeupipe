@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# codeupipe pre-commit hook — enforces doc freshness + lint before commit.
+#
+# Install:
+#   cp hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+#   — or —
+#   ./hooks/install.sh
+set -euo pipefail
+
+# Use module invocation so it works without 'pip install -e .' entry point
+CUP="python3 -m codeupipe.cli"
+
+echo "⏳ pre-commit: running cup doc-check ..."
+if ! $CUP doc-check . >/dev/null 2>&1; then
+    echo "❌ cup doc-check failed — stale docs detected."
+    echo "   Run: cup doc-check .    to see details."
+    echo "   Fix hashes, then retry your commit."
+    exit 1
+fi
+
+echo "⏳ pre-commit: running cup lint ..."
+if ! $CUP lint codeupipe/core >/dev/null 2>&1; then
+    echo "❌ cup lint failed on codeupipe/core."
+    echo "   Run: cup lint codeupipe/core    to see details."
+    exit 1
+fi
+
+echo "✅ pre-commit: all checks passed."

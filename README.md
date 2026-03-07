@@ -1,6 +1,6 @@
 # codeupipe
 
-<!-- cup:ref file=codeupipe/__init__.py hash=9b0673d -->
+<!-- cup:ref file=codeupipe/__init__.py hash=cc63942 -->
 
 Python pipeline framework — composable **Payload → Filter → Pipeline** pattern with streaming support. Zero external dependencies.
 
@@ -10,7 +10,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Core Concepts
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=6ed16dd -->
 | Concept | Role |
 |---|---|
 | **Payload** | Immutable data container flowing through the pipeline |
@@ -210,7 +210,7 @@ print(pipeline.state.chunks_processed)   # {'upper': 3}  (streaming mode)
 
 ## CLI (`cup`)
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=12f4911 -->
+<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=3acb165 -->
 The `cup` command-line tool scaffolds, lints, and analyzes CUP projects:
 
 ```bash
@@ -223,6 +223,10 @@ cup coverage src/signup                    # Map component↔test coverage gaps
 cup report src/signup                      # Health report with scores, orphans, staleness
 cup doc-check .                            # Verify doc freshness (cup:ref markers)
 cup run pipeline.json --discover ./filters # Execute a pipeline from config
+cup connect --list                         # Show configured connectors
+cup connect --health                       # Run connector health checks
+cup describe pipeline.json                 # Inspect pipeline inputs, outputs, steps
+cup describe pipeline.json --json          # Machine-readable output (--json works globally)
 ```
 <!-- /cup:ref -->
 
