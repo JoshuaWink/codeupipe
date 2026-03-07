@@ -50,5 +50,6 @@ markers = [
     "core: Core functionality tests",
     "utils: Utility tests",
     "asyncio: Async tests",
+    "live: Tests that hit real external services (network required)",
 ]
 asyncio_mode = "strict"

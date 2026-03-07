@@ -499,3 +499,86 @@ class TestRealIndex:
             f"  Sample: {sample_names}"
         )
 
+
+# ── Live GitHub fetch tests ─────────────────────────────────────────
+
+LIVE_INDEX_URL = (
+    "https://raw.githubusercontent.com/codeuchain/codeupipe/"
+    "main/marketplace/index.json"
+)
+
+
+@pytest.mark.live
+class TestLiveGitHubIndex:
+    """Fetch the real index.json from raw.githubusercontent.com and verify it.
+
+    These tests hit the network. They are marked with @pytest.mark.live
+    so they can be skipped in offline/CI environments with:
+        pytest -m "not live"
+
+    The tests verify that what GitHub is actually serving matches what
+    we have on disk — closing the loop between local edits and what
+    users will fetch.
+    """
+
+    @pytest.fixture()
+    def live_index(self, tmp_path, monkeypatch):
+        """Fetch index from GitHub, bypassing the local cache."""
+        # Redirect cache to tmp so we don't pollute or read stale local cache
+        cache_dir = tmp_path / "live_cache"
+        cache_dir.mkdir()
+        monkeypatch.setattr("codeupipe.marketplace.index._CACHE_DIR", cache_dir)
+        monkeypatch.setattr("codeupipe.marketplace.index._CACHE_FILE", cache_dir / "index.json")
+        try:
+            return fetch_index(url=LIVE_INDEX_URL, force=True)
+        except MarketplaceError:
+            pytest.skip("Cannot reach raw.githubusercontent.com — offline?")
+
+    def test_live_fetch_returns_valid_json(self, live_index):
+        assert "version" in live_index
+        assert "connectors" in live_index
+        assert isinstance(live_index["connectors"], list)
+
+    def test_live_fetch_has_connectors(self, live_index):
+        assert len(live_index["connectors"]) > 0
+
+    def test_live_connector_names_match_local(self, live_index):
+        """What GitHub serves must match what's on disk."""
+        repo_root = Path(__file__).resolve().parent.parent
+        local_index = json.loads(
+            (repo_root / "marketplace" / "index.json").read_text(encoding="utf-8")
+        )
+        live_names = sorted(e["name"] for e in live_index["connectors"])
+        local_names = sorted(e["name"] for e in local_index["connectors"])
+        assert live_names == local_names, (
+            f"Live GitHub index has different connectors than local.\n"
+            f"  Live:  {live_names}\n"
+            f"  Local: {local_names}"
+        )
+
+    def test_live_repo_urls_are_valid(self, live_index):
+        """Every repo URL should point to the monorepo."""
+        for entry in live_index["connectors"]:
+            assert "codeuchain/codeupipe/tree/main/connectors/" in entry["repo"], (
+                f"{entry['name']} has bad repo URL on GitHub: {entry['repo']}"
+            )
+
+    def test_live_all_entries_have_required_fields(self, live_index):
+        required = {"name", "provider", "pypi", "repo", "description",
+                    "categories", "filters", "trust", "min_codeupipe", "latest"}
+        for entry in live_index["connectors"]:
+            missing = required - set(entry.keys())
+            assert not missing, f"{entry.get('name', '?')} missing on GitHub: {missing}"
+
+    def test_live_search_works(self, live_index):
+        """Verify search() works against the live-fetched data."""
+        results = search(live_index, "stripe")
+        assert len(results) == 1
+        assert results[0]["name"] == "codeupipe-stripe"
+
+    def test_live_info_works(self, live_index):
+        """Verify info() works against the live-fetched data."""
+        entry = info(live_index, "google-ai")
+        assert entry is not None
+        assert entry["name"] == "codeupipe-google-ai"
+
