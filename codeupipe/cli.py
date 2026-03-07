@@ -1401,6 +1401,11 @@ def main(argv=None):
         "--email",
         help="Email provider (e.g. sendgrid)",
     )
+    init_parser.add_argument(
+        "--frontend",
+        choices=["react", "next", "vite", "remix", "static"],
+        help="Frontend framework to scaffold",
+    )
 
     args = parser.parse_args(argv)
 
@@ -1833,6 +1838,7 @@ def main(argv=None):
                 args.template,
                 args.name,
                 deploy_target=getattr(args, "deploy", "docker"),
+                frontend=getattr(args, "frontend", None),
                 options=options,
             )
 

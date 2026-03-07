@@ -51,6 +51,7 @@ def init_project(
     output_dir: Optional[str] = None,
     *,
     deploy_target: str = "docker",
+    frontend: Optional[str] = None,
     options: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Initialize a new codeupipe project.
@@ -60,6 +61,7 @@ def init_project(
         name: Project name.
         output_dir: Directory to create project in (default: ./{name}).
         deploy_target: Deployment target (default: 'docker').
+        frontend: Frontend framework ('react', 'next', 'vite', None).
         options: Additional options (auth, db, payments, ai providers).
 
     Returns:
@@ -82,7 +84,7 @@ def init_project(
     created_files: List[str] = []
 
     # 1. cup.toml manifest
-    manifest = _render_manifest(name, deploy_target, opts)
+    manifest = _render_manifest(name, deploy_target, frontend, opts)
     _write(project_dir / "cup.toml", manifest, created_files)
 
     # 2. pyproject.toml
@@ -112,15 +114,20 @@ def init_project(
     # 6. .github/workflows/ci.yml
     gh_dir = project_dir / ".github" / "workflows"
     gh_dir.mkdir(parents=True)
-    _write(gh_dir / "ci.yml", _render_ci_workflow(name), created_files)
+    _write(gh_dir / "ci.yml", _render_ci_workflow(name, frontend), created_files)
 
     # 7. README.md
-    _write(project_dir / "README.md", _render_readme(name, template), created_files)
+    _write(project_dir / "README.md", _render_readme(name, template, frontend, deploy_target), created_files)
+
+    # 8. Frontend scaffold (if requested)
+    if frontend:
+        _scaffold_frontend(project_dir, name, frontend, deploy_target, created_files)
 
     return {
         "project_dir": str(project_dir),
         "files": created_files,
         "template": template,
+        "frontend": frontend,
     }
 
 
@@ -129,18 +136,31 @@ def _write(path: Path, content: str, tracker: List[str]) -> None:
     tracker.append(str(path))
 
 
-def _render_manifest(name: str, deploy_target: str, opts: Dict[str, str]) -> str:
+def _render_manifest(name: str, deploy_target: str, frontend: Optional[str], opts: Dict[str, str]) -> str:
     lines = [
         "[project]",
         f'name = "{name}"',
         'version = "0.1.0"',
         "",
-        "[deploy]",
-        f'target = "{deploy_target}"',
-        "",
-        "[dependencies]",
-        'codeupipe = ">=0.5.0"',
     ]
+
+    if frontend:
+        lines.append("[frontend]")
+        lines.append(f'framework = "{frontend}"')
+        if frontend == "next":
+            lines.append('build_command = "npm run build"')
+            lines.append('output_dir = ".next"')
+        else:
+            lines.append('build_command = "npm run build"')
+            lines.append('output_dir = "dist"')
+        lines.append("")
+
+    lines.append("[deploy]")
+    lines.append(f'target = "{deploy_target}"')
+    lines.append("")
+    lines.append("[dependencies]")
+    lines.append('codeupipe = ">=0.6.0"')
+
     for key, value in opts.items():
         lines.append(f'codeupipe-{key} = {{ provider = "{value}" }}')
     return "\n".join(lines) + "\n"
@@ -232,48 +252,171 @@ def _render_test_scaffold(name: str) -> str:
     )
 
 
-def _render_ci_workflow(name: str) -> str:
-    return (
-        f"name: CI — {name}\n"
-        "\n"
-        "on:\n"
-        "  push:\n"
-        "    branches: [main]\n"
-        "  pull_request:\n"
-        "    branches: [main]\n"
-        "\n"
-        "jobs:\n"
-        "  test:\n"
-        "    runs-on: ubuntu-latest\n"
-        "    strategy:\n"
-        "      matrix:\n"
-        '        python-version: ["3.9", "3.12", "3.13"]\n'
-        "    steps:\n"
-        "      - uses: actions/checkout@v4\n"
-        "      - uses: actions/setup-python@v5\n"
-        "        with:\n"
-        "          python-version: ${{ matrix.python-version }}\n"
-        "      - run: pip install -e '.[dev]'\n"
-        "      - run: python -m pytest -q\n"
-    )
+def _render_ci_workflow(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"name: CI — {name}",
+        "",
+        "on:",
+        "  push:",
+        "    branches: [main]",
+        "  pull_request:",
+        "    branches: [main]",
+        "",
+        "jobs:",
+        "  test:",
+        "    runs-on: ubuntu-latest",
+        "    strategy:",
+        "      matrix:",
+        '        python-version: ["3.9", "3.12", "3.13"]',
+        "    steps:",
+        "      - uses: actions/checkout@v4",
+        "      - uses: actions/setup-python@v5",
+        "        with:",
+        "          python-version: ${{ matrix.python-version }}",
+    ]
+
+    if frontend:
+        lines.extend([
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            '          node-version: "20"',
+            "      - run: cd frontend && npm ci",
+            "      - run: cd frontend && npm run build",
+        ])
+
+    lines.extend([
+        "      - run: pip install -e '.[dev]'",
+        "      - run: python -m pytest -q",
+    ])
+    return "\n".join(lines) + "\n"
 
 
-def _render_readme(name: str, template: str) -> str:
-    return (
-        f"# {name}\n"
-        "\n"
-        f"A **{template}** project powered by [codeupipe](https://pypi.org/project/codeupipe/).\n"
-        "\n"
-        "## Quick Start\n"
-        "\n"
-        "```bash\n"
-        "pip install -e .\n"
-        "cup run pipelines/*.json\n"
-        "```\n"
-        "\n"
-        "## Deploy\n"
-        "\n"
-        "```bash\n"
-        "cup deploy docker\n"
-        "```\n"
+def _render_readme(
+    name: str,
+    template: str,
+    frontend: Optional[str] = None,
+    deploy_target: str = "docker",
+) -> str:
+    lines = [
+        f"# {name}",
+        "",
+        f"A **{template}** project powered by [codeupipe](https://pypi.org/project/codeupipe/).",
+        "",
+        "## Quick Start",
+        "",
+        "```bash",
+        "pip install -e .",
+        "cup run pipelines/*.json",
+        "```",
+    ]
+
+    if frontend:
+        lines.extend([
+            "",
+            "## Frontend",
+            "",
+            "```bash",
+            "cd frontend && npm install && npm run dev",
+            "```",
+        ])
+
+    lines.extend([
+        "",
+        "## Deploy",
+        "",
+        "```bash",
+        f"cup deploy {deploy_target}",
+        "```",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _scaffold_frontend(
+    project_dir: Path,
+    name: str,
+    frontend: str,
+    deploy_target: str,
+    created_files: List[str],
+) -> None:
+    """Create a minimal frontend scaffold."""
+    fe_dir = project_dir / "frontend"
+    fe_dir.mkdir()
+    src_dir = fe_dir / "src"
+    src_dir.mkdir()
+
+    safe = name.replace("-", "_").replace(" ", "_")
+
+    if frontend == "next":
+        pkg = json.dumps(
+            {
+                "name": name,
+                "private": True,
+                "scripts": {"dev": "next dev", "build": "next build", "start": "next start"},
+                "dependencies": {"next": "^14", "react": "^18", "react-dom": "^18"},
+            },
+            indent=2,
+        )
+        _write(fe_dir / "package.json", pkg + "\n", created_files)
+
+        pages_dir = fe_dir / "pages"
+        pages_dir.mkdir()
+        _write(
+            pages_dir / "index.jsx",
+            f'export default function Home() {{\n  return <h1>{name}</h1>;\n}}\n',
+            created_files,
+        )
+    else:
+        # Vite + React (covers react, vite, and generic)
+        pkg = json.dumps(
+            {
+                "name": name,
+                "private": True,
+                "type": "module",
+                "scripts": {"dev": "vite", "build": "vite build", "preview": "vite preview"},
+                "dependencies": {"react": "^18", "react-dom": "^18"},
+                "devDependencies": {
+                    "@vitejs/plugin-react": "^4",
+                    "vite": "^5",
+                },
+            },
+            indent=2,
+        )
+        _write(fe_dir / "package.json", pkg + "\n", created_files)
+        _write(
+            fe_dir / "vite.config.js",
+            "import { defineConfig } from 'vite';\n"
+            "import react from '@vitejs/plugin-react';\n"
+            "\n"
+            "export default defineConfig({\n"
+            "  plugins: [react()],\n"
+            "});\n",
+            created_files,
+        )
+        _write(
+            fe_dir / "index.html",
+            '<!doctype html>\n<html lang="en">\n<head>\n'
+            '  <meta charset="UTF-8" />\n'
+            f'  <title>{name}</title>\n'
+            '</head>\n<body>\n'
+            '  <div id="root"></div>\n'
+            '  <script type="module" src="/src/main.jsx"></script>\n'
+            '</body>\n</html>\n',
+            created_files,
+        )
+        _write(
+            src_dir / "main.jsx",
+            "import React from 'react';\n"
+            "import ReactDOM from 'react-dom/client';\n"
+            "import App from './App';\n"
+            "\n"
+            "ReactDOM.createRoot(document.getElementById('root')).render(\n"
+            "  <React.StrictMode><App /></React.StrictMode>\n"
+            ");\n",
+            created_files,
+        )
+
+    _write(
+        src_dir / "App.jsx",
+        f'export default function App() {{\n  return <h1>{name}</h1>;\n}}\n',
+        created_files,
     )

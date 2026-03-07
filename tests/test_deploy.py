@@ -549,3 +549,379 @@ class TestExports:
 
     def test_init_types_accessible(self):
         from codeupipe import init_project, list_templates, InitError
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Ring 7b — Platform Adapters & Frontend Support
+# ══════════════════════════════════════════════════════════════════════
+
+
+# ── Serverless Handler Wrappers ─────────────────────────────────────
+
+class TestHandlers:
+    """Tests for serverless handler rendering functions."""
+
+    def test_render_vercel_handler(self):
+        from codeupipe.deploy.handlers import render_vercel_handler
+        code = render_vercel_handler("my_pipeline")
+        assert "BaseHTTPRequestHandler" in code
+        assert "my_pipeline" in code
+        assert "do_POST" in code
+        assert "do_GET" in code
+
+    def test_render_netlify_handler(self):
+        from codeupipe.deploy.handlers import render_netlify_handler
+        code = render_netlify_handler("my_pipeline")
+        assert "def handler(event, context)" in code
+        assert "my_pipeline" in code
+        assert "statusCode" in code
+
+    def test_render_lambda_handler(self):
+        from codeupipe.deploy.handlers import render_lambda_handler
+        code = render_lambda_handler("my_pipeline")
+        assert "def handler(event, context)" in code
+        assert "my_pipeline" in code
+        assert "statusCode" in code
+
+    def test_handler_default_names(self):
+        from codeupipe.deploy.handlers import (
+            render_vercel_handler,
+            render_netlify_handler,
+            render_lambda_handler,
+        )
+        # Default pipeline name should be "pipeline"
+        assert "pipeline.json" in render_vercel_handler()
+        assert "pipeline.json" in render_netlify_handler()
+        assert "pipeline.json" in render_lambda_handler()
+
+
+# ── VercelAdapter ───────────────────────────────────────────────────
+
+class TestVercelAdapter:
+    """Tests for VercelAdapter."""
+
+    @pytest.fixture
+    def adapter(self):
+        from codeupipe.deploy.vercel import VercelAdapter
+        return VercelAdapter()
+
+    @pytest.fixture
+    def valid_config(self):
+        return {
+            "pipeline": {
+                "name": "test-pipeline",
+                "steps": [{"name": "Step1", "type": "filter"}],
+            },
+        }
+
+    @pytest.fixture
+    def config_with_frontend(self):
+        return {
+            "pipeline": {
+                "name": "test-pipeline",
+                "steps": [{"name": "Step1", "type": "filter"}],
+            },
+            "frontend": {
+                "framework": "react",
+                "build_command": "npm run build",
+                "output_dir": "dist",
+            },
+        }
+
+    def test_target(self, adapter):
+        t = adapter.target()
+        assert t.name == "vercel"
+        assert "Vercel" in t.description
+
+    def test_validate_ok(self, adapter, valid_config):
+        errors = adapter.validate(valid_config)
+        assert errors == []
+
+    def test_validate_missing_pipeline(self, adapter):
+        errors = adapter.validate({})
+        assert any("pipeline" in e.lower() for e in errors)
+
+    def test_generate_minimal(self, adapter, valid_config, tmp_path):
+        files = adapter.generate(valid_config, tmp_path)
+        assert any("vercel.json" in str(f) for f in files)
+        assert any("pipeline.py" in str(f) for f in files)
+        assert any("pipeline.json" in str(f) for f in files)
+
+    def test_generate_with_frontend(self, adapter, config_with_frontend, tmp_path):
+        files = adapter.generate(config_with_frontend, tmp_path)
+        file_names = [str(f) for f in files]
+        assert any("vercel.json" in f for f in file_names)
+        assert any("package.json" in f for f in file_names)
+        assert any("index.html" in f for f in file_names)
+
+    def test_vercel_json_structure(self, adapter, valid_config, tmp_path):
+        adapter.generate(valid_config, tmp_path)
+        vercel_cfg = json.loads((tmp_path / "vercel.json").read_text())
+        assert "routes" in vercel_cfg
+
+    def test_deploy_without_cli(self, adapter, valid_config, tmp_path):
+        """deploy() gracefully handles missing vercel CLI."""
+        adapter.generate(valid_config, tmp_path)
+        result = adapter.deploy(tmp_path)
+        # Should return instructions or succeed — no crash
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+# ── NetlifyAdapter ──────────────────────────────────────────────────
+
+class TestNetlifyAdapter:
+    """Tests for NetlifyAdapter."""
+
+    @pytest.fixture
+    def adapter(self):
+        from codeupipe.deploy.netlify import NetlifyAdapter
+        return NetlifyAdapter()
+
+    @pytest.fixture
+    def valid_config(self):
+        return {
+            "pipeline": {
+                "name": "test-pipeline",
+                "steps": [{"name": "Step1", "type": "filter"}],
+            },
+        }
+
+    @pytest.fixture
+    def config_with_frontend(self):
+        return {
+            "pipeline": {
+                "name": "test-pipeline",
+                "steps": [{"name": "Step1", "type": "filter"}],
+            },
+            "frontend": {
+                "framework": "vite",
+                "build_command": "npm run build",
+                "output_dir": "dist",
+            },
+        }
+
+    def test_target(self, adapter):
+        t = adapter.target()
+        assert t.name == "netlify"
+        assert "Netlify" in t.description
+
+    def test_validate_ok(self, adapter, valid_config):
+        errors = adapter.validate(valid_config)
+        assert errors == []
+
+    def test_validate_missing_pipeline(self, adapter):
+        errors = adapter.validate({})
+        assert any("pipeline" in e.lower() for e in errors)
+
+    def test_generate_minimal(self, adapter, valid_config, tmp_path):
+        files = adapter.generate(valid_config, tmp_path)
+        assert any("netlify.toml" in str(f) for f in files)
+        assert any("pipeline.py" in str(f) for f in files)
+        assert any("pipeline.json" in str(f) for f in files)
+
+    def test_generate_with_frontend(self, adapter, config_with_frontend, tmp_path):
+        files = adapter.generate(config_with_frontend, tmp_path)
+        file_names = [str(f) for f in files]
+        assert any("netlify.toml" in f for f in file_names)
+        assert any("package.json" in f for f in file_names)
+        assert any("index.html" in f for f in file_names)
+
+    def test_netlify_toml_structure(self, adapter, valid_config, tmp_path):
+        adapter.generate(valid_config, tmp_path)
+        toml_content = (tmp_path / "netlify.toml").read_text()
+        assert "[build]" in toml_content
+        assert "functions" in toml_content
+
+    def test_deploy_without_cli(self, adapter, valid_config, tmp_path):
+        """deploy() gracefully handles missing netlify CLI."""
+        adapter.generate(valid_config, tmp_path)
+        result = adapter.deploy(tmp_path)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+# ── Manifest [frontend] Validation ──────────────────────────────────
+
+class TestManifestFrontend:
+    """Tests for [frontend] and [deploy] manifest validation."""
+
+    @pytest.fixture
+    def valid_manifest(self, tmp_path):
+        content = (
+            '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+            '[frontend]\nframework = "react"\n\n'
+            '[deploy]\ntarget = "vercel"\n\n'
+            '[dependencies]\ncodeupipe = ">=0.6.0"\n'
+        )
+        f = tmp_path / "cup.toml"
+        f.write_text(content)
+        return f
+
+    def test_valid_frontend_loads(self, valid_manifest):
+        from codeupipe.deploy.manifest import load_manifest
+        m = load_manifest(valid_manifest)
+        assert m["frontend"]["framework"] == "react"
+
+    def test_invalid_frontend_framework(self, tmp_path):
+        from codeupipe.deploy.manifest import load_manifest, ManifestError
+        content = (
+            '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+            '[frontend]\nframework = "angular"\n\n'
+            '[dependencies]\ncodeupipe = ">=0.6.0"\n'
+        )
+        f = tmp_path / "cup.toml"
+        f.write_text(content)
+        with pytest.raises(ManifestError, match="framework"):
+            load_manifest(f)
+
+    def test_invalid_deploy_target(self, tmp_path):
+        from codeupipe.deploy.manifest import load_manifest, ManifestError
+        content = (
+            '[project]\nname = "test"\nversion = "0.1.0"\n\n'
+            '[deploy]\ntarget = "heroku"\n\n'
+            '[dependencies]\ncodeupipe = ">=0.6.0"\n'
+        )
+        f = tmp_path / "cup.toml"
+        f.write_text(content)
+        with pytest.raises(ManifestError, match="target"):
+            load_manifest(f)
+
+
+# ── Discovery Registers New Adapters ────────────────────────────────
+
+class TestDiscoveryRing7b:
+    """Verify discovery returns all built-in adapters."""
+
+    def test_finds_vercel(self):
+        from codeupipe.deploy.discovery import find_adapters
+        adapters = find_adapters()
+        assert "vercel" in adapters
+
+    def test_finds_netlify(self):
+        from codeupipe.deploy.discovery import find_adapters
+        adapters = find_adapters()
+        assert "netlify" in adapters
+
+    def test_finds_all_three_builtins(self):
+        from codeupipe.deploy.discovery import find_adapters
+        adapters = find_adapters()
+        assert {"docker", "vercel", "netlify"}.issubset(adapters.keys())
+
+
+# ── Init --frontend Scaffold ────────────────────────────────────────
+
+class TestInitFrontend:
+    """Tests for cup init with --frontend."""
+
+    def test_init_with_react_frontend(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        result = init_project("api", "test-fe-project", frontend="react")
+        proj = tmp_path / "test-fe-project"
+
+        assert (proj / "frontend" / "package.json").exists()
+        assert (proj / "frontend" / "src" / "App.jsx").exists()
+        assert (proj / "frontend" / "vite.config.js").exists()
+        assert result["frontend"] == "react"
+
+    def test_init_with_next_frontend(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        result = init_project("api", "test-next-proj", frontend="next")
+        proj = tmp_path / "test-next-proj"
+
+        assert (proj / "frontend" / "package.json").exists()
+        assert (proj / "frontend" / "pages" / "index.jsx").exists()
+        pkg = json.loads((proj / "frontend" / "package.json").read_text())
+        assert "next" in pkg.get("dependencies", {})
+
+    def test_init_frontend_none_no_frontend_dir(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        init_project("api", "test-no-fe")
+        proj = tmp_path / "test-no-fe"
+        assert not (proj / "frontend").exists()
+
+    def test_manifest_includes_frontend_section(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        init_project("api", "test-manifest-fe", frontend="vite", deploy_target="vercel")
+        manifest = (tmp_path / "test-manifest-fe" / "cup.toml").read_text()
+        assert "[frontend]" in manifest
+        assert 'framework = "vite"' in manifest
+        assert 'target = "vercel"' in manifest
+
+    def test_ci_workflow_includes_node_for_frontend(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        init_project("api", "test-ci-fe", frontend="react")
+        ci = (tmp_path / "test-ci-fe" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "setup-node" in ci
+        assert "npm" in ci
+
+    def test_readme_includes_frontend_section(self, tmp_path, monkeypatch):
+        from codeupipe.deploy.init import init_project
+        monkeypatch.chdir(tmp_path)
+        init_project("api", "test-readme-fe", frontend="react", deploy_target="vercel")
+        readme = (tmp_path / "test-readme-fe" / "README.md").read_text()
+        assert "Frontend" in readme
+        assert "vercel" in readme
+
+    def test_cli_init_with_frontend(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        result = main(["init", "api", "cli-fe-proj", "--frontend", "react"])
+        assert result == 0
+        assert (tmp_path / "cli-fe-proj" / "frontend").is_dir()
+
+    def test_cli_deploy_vercel_target(self, tmp_path):
+        """cup deploy vercel generates vercel.json."""
+        from codeupipe.cli import main
+        config_path = tmp_path / "pipe.json"
+        config_path.write_text(json.dumps({
+            "pipeline": {
+                "name": "test",
+                "steps": [{"name": "S1", "type": "filter"}],
+            },
+        }))
+        out = str(tmp_path / "vercel_out")
+        result = main(["deploy", "vercel", str(config_path), "--output-dir", out])
+        assert result == 0
+        assert (Path(out) / "vercel.json").exists()
+
+    def test_cli_deploy_netlify_target(self, tmp_path):
+        """cup deploy netlify generates netlify.toml."""
+        from codeupipe.cli import main
+        config_path = tmp_path / "pipe.json"
+        config_path.write_text(json.dumps({
+            "pipeline": {
+                "name": "test",
+                "steps": [{"name": "S1", "type": "filter"}],
+            },
+        }))
+        out = str(tmp_path / "netlify_out")
+        result = main(["deploy", "netlify", str(config_path), "--output-dir", out])
+        assert result == 0
+        assert (Path(out) / "netlify.toml").exists()
+
+
+# ── Exports Ring 7b ─────────────────────────────────────────────────
+
+class TestExportsRing7b:
+    """Verify Ring 7b types are accessible from top-level."""
+
+    def test_adapter_exports(self):
+        from codeupipe import VercelAdapter, NetlifyAdapter
+        assert VercelAdapter is not None
+        assert NetlifyAdapter is not None
+
+    def test_handler_exports(self):
+        from codeupipe import (
+            render_vercel_handler,
+            render_netlify_handler,
+            render_lambda_handler,
+        )
+        assert callable(render_vercel_handler)
+        assert callable(render_netlify_handler)
+        assert callable(render_lambda_handler)

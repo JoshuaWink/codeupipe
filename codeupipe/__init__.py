@@ -29,16 +29,18 @@ from .converter.pipelines import build_export_pipeline, build_import_pipeline
 from .registry import Registry, cup_component, default_registry
 from .distribute import RemoteFilter, Checkpoint, CheckpointHook, IterableSource, FileSource, WorkerPool
 from .deploy import (
-    DeployTarget, DeployAdapter, DockerAdapter, find_adapters, load_manifest,
-    ManifestError, resolve_recipe, list_recipes, RecipeError,
+    DeployTarget, DeployAdapter, DockerAdapter, VercelAdapter, NetlifyAdapter,
+    find_adapters, load_manifest, ManifestError,
+    resolve_recipe, list_recipes, RecipeError,
     init_project, list_templates, InitError,
+    render_vercel_handler, render_netlify_handler, render_lambda_handler,
 )
 
 from importlib.metadata import version as _pkg_version, PackageNotFoundError
 try:
     __version__ = _pkg_version("codeupipe")
 except PackageNotFoundError:
-    __version__ = "0.6.0"  # fallback for editable / non-installed usage
+    __version__ = "0.7.0"  # fallback for editable / non-installed usage
 __all__ = [
     # Core
     "Payload", "MutablePayload",
@@ -62,7 +64,9 @@ __all__ = [
     "IterableSource", "FileSource", "WorkerPool",
     # Deploy
     "DeployTarget", "DeployAdapter", "DockerAdapter",
+    "VercelAdapter", "NetlifyAdapter",
     "find_adapters", "load_manifest", "ManifestError",
     "resolve_recipe", "list_recipes", "RecipeError",
     "init_project", "list_templates", "InitError",
+    "render_vercel_handler", "render_netlify_handler", "render_lambda_handler",
 ]

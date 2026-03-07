@@ -72,3 +72,25 @@ def _validate(data: dict, path: str) -> None:
     project = data["project"]
     if "name" not in project:
         raise ManifestError(f"{path}: [project] missing 'name'")
+
+    # Validate [frontend] section if present
+    frontend = data.get("frontend")
+    if frontend:
+        if "framework" not in frontend:
+            raise ManifestError(f"{path}: [frontend] missing 'framework'")
+        valid_frameworks = ("react", "next", "vite", "remix", "static")
+        if frontend["framework"] not in valid_frameworks:
+            raise ManifestError(
+                f"{path}: [frontend] unsupported framework '{frontend['framework']}'. "
+                f"Valid: {', '.join(valid_frameworks)}"
+            )
+
+    # Validate [deploy] section if present
+    deploy = data.get("deploy")
+    if deploy and "target" in deploy:
+        valid_targets = ("docker", "vercel", "netlify", "aws", "aws-lambda", "aws-s3")
+        if deploy["target"] not in valid_targets:
+            raise ManifestError(
+                f"{path}: [deploy] unsupported target '{deploy['target']}'. "
+                f"Valid: {', '.join(valid_targets)}"
+            )

@@ -19,15 +19,18 @@ def find_adapters() -> Dict[str, DeployAdapter]:
     """Discover all installed deploy adapters via entry points.
 
     Returns a dict mapping target name → adapter instance.
-    The built-in DockerAdapter is always included.
+    The built-in adapters (docker, vercel, netlify) are always included.
     """
     from .docker import DockerAdapter
+    from .vercel import VercelAdapter
+    from .netlify import NetlifyAdapter
 
     adapters: Dict[str, DeployAdapter] = {}
 
-    # Built-in adapter — always available
-    docker = DockerAdapter()
-    adapters[docker.target().name] = docker
+    # Built-in adapters — always available
+    for cls in (DockerAdapter, VercelAdapter, NetlifyAdapter):
+        adapter = cls()
+        adapters[adapter.target().name] = adapter
 
     # External adapters via entry points
     try:

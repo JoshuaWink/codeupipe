@@ -7,6 +7,7 @@ Zero external dependencies — pure string template generation.
 
 import json
 import shutil
+import subprocess
 from pathlib import Path
 from typing import List
 
@@ -71,13 +72,43 @@ class DockerAdapter(DeployAdapter):
         return generated
 
     def deploy(self, output_dir: Path, *, dry_run: bool = False, **options) -> str:
+        name = options.get("image_name", "codeupipe-pipeline")
+        port = options.get("port", 8000)
+
         if dry_run:
-            return f"[dry-run] Would build and run Docker image from {output_dir}"
-        return (
-            f"Artifacts generated in {output_dir}/\n"
-            f"Build: docker build -t my-pipeline {output_dir}\n"
-            f"Run:   docker run -p 8000:8000 my-pipeline"
-        )
+            return (
+                f"[dry-run] Would build and run Docker image from {output_dir}\n"
+                f"  docker build -t {name} {output_dir}\n"
+                f"  docker run -p {port}:{port} {name}"
+            )
+
+        if not shutil.which("docker"):
+            return (
+                f"Artifacts generated in {output_dir}/\n"
+                f"Install Docker: https://docs.docker.com/get-docker/\n"
+                f"Then run:\n"
+                f"  docker build -t {name} {output_dir}\n"
+                f"  docker run -p {port}:{port} {name}"
+            )
+
+        try:
+            build = subprocess.run(
+                ["docker", "build", "-t", name, "."],
+                cwd=str(output_dir),
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if build.returncode != 0:
+                return f"Docker build failed:\n{build.stderr}"
+            return (
+                f"Image built: {name}\n"
+                f"Run: docker run -p {port}:{port} {name}"
+            )
+        except subprocess.TimeoutExpired:
+            return "Docker build timed out after 300s"
+        except Exception as e:
+            return f"Docker build error: {e}"
 
     # ── Internal ────────────────────────────────────────────────
 
