@@ -206,6 +206,7 @@ print(pipeline.state.chunks_processed)   # {'upper': 3}  (streaming mode)
 | [CONCEPTS.md](CONCEPTS.md) | Full API reference with runnable examples |
 | [BEST_PRACTICES.md](BEST_PRACTICES.md) | Project structure, naming, testing strategy |
 | [SKILL.md](SKILL.md) | Agent skill reference — types, patterns, conversion |
+| [ROADMAP.md](ROADMAP.md) | Expansion rings — from framework to platform |
 
 ## CLI (`cup`)
 
