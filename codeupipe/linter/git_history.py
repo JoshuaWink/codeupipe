@@ -37,6 +37,9 @@ def _git_file_info(filepath: str, repo_root: str) -> dict:
         last_author = lines[1] if len(lines) > 1 else None
 
         # Parse date for days_since_change
+        # Python 3.9/3.10 fromisoformat doesn't accept 'Z' suffix
+        if last_modified_iso.endswith("Z"):
+            last_modified_iso = last_modified_iso[:-1] + "+00:00"
         last_dt = datetime.fromisoformat(last_modified_iso)
         now = datetime.now(timezone.utc)
         if last_dt.tzinfo is None:

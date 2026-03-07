@@ -30,17 +30,8 @@ jobs:
           pip install pytest pytest-asyncio
           pip install -e .
 
-      - name: Debug git env
-        run: |
-          echo "=== git version ==="
-          git --version
-          echo "=== GIT_* env vars ==="
-          env | grep -i "^GIT_" || echo "none"
-          echo "=== safe.directory ==="
-          git config --global --get-all safe.directory 2>/dev/null || echo "not set"
-
       - name: Run tests
-        run: python -m pytest --tb=long -q -s
+        run: python -m pytest --tb=short -q
 
       - name: Lint components
         run: |

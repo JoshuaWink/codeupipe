@@ -2,12 +2,11 @@
 
 import os
 import subprocess
-import sys
 
 import pytest
 
 from codeupipe import Payload
-from codeupipe.linter.git_history import GitHistory, _git_file_info, _find_repo_root
+from codeupipe.linter.git_history import GitHistory
 
 
 def _comp(name, stem, kind="filter", file_path=None):
@@ -62,28 +61,6 @@ class TestGitHistory:
         f.write_text("class Auth:\n    def call(self, p): ...\n")
         _git(["add", "."], tmp_path)
         _git(["commit", "-m", "init"], tmp_path)
-
-        # Diagnostic: verify git sees the commit directly
-        log_out = _git(["log", "--oneline"], tmp_path)
-        root = _find_repo_root(str(tmp_path))
-        direct_info = _git_file_info(str(f), root)
-        # Also run the raw git command the filter uses
-        raw = subprocess.run(
-            ["git", "log", "-1", "--format=%aI%n%aN", "--", str(f)],
-            cwd=root, capture_output=True, text=True,
-        )
-        raw_count = subprocess.run(
-            ["git", "rev-list", "--count", "HEAD", "--", str(f)],
-            cwd=root, capture_output=True, text=True,
-        )
-        print(f"\nDIAG python={sys.version}")
-        print(f"DIAG tmp_path={tmp_path}")
-        print(f"DIAG root={root}")
-        print(f"DIAG filepath={f}")
-        print(f"DIAG git_log_oneline={log_out.stdout.strip()!r}")
-        print(f"DIAG direct_info={direct_info}")
-        print(f"DIAG raw_log rc={raw.returncode} stdout={raw.stdout!r} stderr={raw.stderr!r}")
-        print(f"DIAG raw_count rc={raw_count.returncode} stdout={raw_count.stdout!r} stderr={raw_count.stderr!r}")
 
         comps = [_comp("Auth", "auth", file_path=str(f))]
         payload = Payload({"components": comps, "directory": str(tmp_path)})
