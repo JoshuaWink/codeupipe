@@ -28,7 +28,7 @@ SAMPLE_INDEX = {
             "name": "codeupipe-google-ai",
             "provider": "google-ai",
             "pypi": "codeupipe-google-ai",
-            "repo": "https://github.com/codeuchain/codeupipe-google-ai",
+            "repo": "https://github.com/codeuchain/codeupipe/tree/main/connectors/codeupipe-google-ai",
             "description": "Google AI (Gemini) — multimodal generation, embeddings, and vision",
             "categories": ["ai", "llm", "multimodal", "vision", "embeddings"],
             "filters": ["GeminiGenerate", "GeminiGenerateStream", "GeminiEmbed", "GeminiVision"],
@@ -40,7 +40,7 @@ SAMPLE_INDEX = {
             "name": "codeupipe-stripe",
             "provider": "stripe",
             "pypi": "codeupipe-stripe",
-            "repo": "https://github.com/codeuchain/codeupipe-stripe",
+            "repo": "https://github.com/codeuchain/codeupipe/tree/main/connectors/codeupipe-stripe",
             "description": "Stripe checkout, subscriptions, and webhooks",
             "categories": ["payments", "billing"],
             "filters": ["StripeCheckout", "StripeSubscription", "StripeWebhook", "StripeCustomer"],
@@ -52,7 +52,7 @@ SAMPLE_INDEX = {
             "name": "codeupipe-postgres",
             "provider": "postgres",
             "pypi": "codeupipe-postgres",
-            "repo": "https://github.com/codeuchain/codeupipe-postgres",
+            "repo": "https://github.com/codeuchain/codeupipe/tree/main/connectors/codeupipe-postgres",
             "description": "PostgreSQL queries, transactions, and bulk insert",
             "categories": ["database", "sql"],
             "filters": ["PostgresQuery", "PostgresExecute", "PostgresTransaction", "PostgresBulkInsert"],
@@ -64,7 +64,7 @@ SAMPLE_INDEX = {
             "name": "codeupipe-resend",
             "provider": "resend",
             "pypi": "codeupipe-resend",
-            "repo": "https://github.com/codeuchain/codeupipe-resend",
+            "repo": "https://github.com/codeuchain/codeupipe/tree/main/connectors/codeupipe-resend",
             "description": "Resend transactional email and template rendering",
             "categories": ["email", "notifications"],
             "filters": ["ResendEmail", "ResendTemplate"],
@@ -421,4 +421,81 @@ class TestCLIMarketplace:
 
         result = main(["marketplace"])
         assert result == 1
+
+
+# ── Real index.json validation ──────────────────────────────────────
+
+
+class TestRealIndex:
+    """Validate the shipped marketplace/index.json against the actual repo.
+
+    These tests read the real index file and verify that every connector
+    it references actually exists on disk with the expected structure.
+    Trust-but-verify: the index says it, we confirm it.
+    """
+
+    @pytest.fixture()
+    def real_index(self):
+        """Load the actual marketplace/index.json from the repo root."""
+        repo_root = Path(__file__).resolve().parent.parent
+        index_path = repo_root / "marketplace" / "index.json"
+        assert index_path.exists(), f"marketplace/index.json not found at {index_path}"
+        return json.loads(index_path.read_text(encoding="utf-8"))
+
+    def test_index_has_required_keys(self, real_index):
+        assert "version" in real_index
+        assert "connectors" in real_index
+        assert isinstance(real_index["connectors"], list)
+        assert len(real_index["connectors"]) > 0
+
+    def test_each_connector_has_required_fields(self, real_index):
+        required = {"name", "provider", "pypi", "repo", "description",
+                    "categories", "filters", "trust", "min_codeupipe", "latest"}
+        for entry in real_index["connectors"]:
+            missing = required - set(entry.keys())
+            assert not missing, f"{entry.get('name', '?')} missing fields: {missing}"
+
+    def test_connector_directories_exist(self, real_index):
+        repo_root = Path(__file__).resolve().parent.parent
+        for entry in real_index["connectors"]:
+            connector_dir = repo_root / "connectors" / entry["name"]
+            assert connector_dir.is_dir(), (
+                f"Connector dir missing for {entry['name']}: {connector_dir}"
+            )
+
+    def test_connector_pyproject_exists(self, real_index):
+        repo_root = Path(__file__).resolve().parent.parent
+        for entry in real_index["connectors"]:
+            pyproject = repo_root / "connectors" / entry["name"] / "pyproject.toml"
+            assert pyproject.is_file(), (
+                f"pyproject.toml missing for {entry['name']}: {pyproject}"
+            )
+
+    def test_repo_urls_point_to_monorepo(self, real_index):
+        for entry in real_index["connectors"]:
+            expected_prefix = "https://github.com/codeuchain/codeupipe/tree/main/connectors/"
+            assert entry["repo"].startswith(expected_prefix), (
+                f"{entry['name']} repo URL doesn't point to monorepo: {entry['repo']}"
+            )
+            # The URL should end with the connector name
+            assert entry["repo"].endswith(entry["name"]), (
+                f"{entry['name']} repo URL doesn't end with package name: {entry['repo']}"
+            )
+
+    def test_trust_is_valid_tier(self, real_index):
+        valid_tiers = {"verified", "community", "unindexed"}
+        for entry in real_index["connectors"]:
+            assert entry["trust"] in valid_tiers, (
+                f"{entry['name']} has invalid trust tier: {entry['trust']}"
+            )
+
+    def test_sample_index_matches_real_index(self, real_index):
+        """Verify the test fixture stays in sync with the real index."""
+        real_names = sorted(e["name"] for e in real_index["connectors"])
+        sample_names = sorted(e["name"] for e in SAMPLE_INDEX["connectors"])
+        assert real_names == sample_names, (
+            f"SAMPLE_INDEX out of sync with real index.\n"
+            f"  Real: {real_names}\n"
+            f"  Sample: {sample_names}"
+        )
 
