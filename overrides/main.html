@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  {{ super() }}
+  <!-- Agent navigation guide: https://codeuchain.github.io/codeupipe/agents.txt -->
+  <meta name="agent-guide" content="https://codeuchain.github.io/codeupipe/agents.txt">
+  {% if page and page.file %}
+  <meta name="plain-text" content="https://codeuchain.github.io/codeupipe/{{ page.file.src_path | replace('.md', '.txt') }}">
+  {% endif %}
+{% endblock %}
+
+{% block footer %}
+  {{ super() }}
+  {% if page and page.file %}
+  <div style="text-align:center;padding:0.5em 0;font-size:0.72em;opacity:0.55;font-family:monospace;">
+    AI agent? &rarr;
+    <a href="https://codeuchain.github.io/codeupipe/agents.txt" style="opacity:0.8;">agents.txt</a>
+    &nbsp;|&nbsp; plain text:
+    <a href="https://codeuchain.github.io/codeupipe/{{ page.file.src_path | replace('.md', '.txt') }}" style="opacity:0.8;">{{ page.file.src_path | replace('.md', '.txt') }}</a>
+  </div>
+  {% endif %}
+{% endblock %}

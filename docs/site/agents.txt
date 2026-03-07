@@ -1,0 +1,141 @@
+# codeupipe — Agent Navigation Guide
+# https://codeuchain.github.io/codeupipe/agents.txt
+#
+# This file helps AI agents, LLMs, and automated tools navigate the
+# codeupipe documentation efficiently. All pages are available as
+# plain-text Markdown at <page-url>.txt — no HTML parsing required.
+
+================================================================================
+WHAT IS CODEUPIPE?
+================================================================================
+
+codeupipe is a Python pipeline framework for composing data-processing workflows.
+Core pattern: Payload → Filter → Pipeline. Zero external dependencies. Python 3.9+.
+
+Key types:
+  Payload      — immutable data container; .get(key) / .insert(key, value)
+  Filter       — sync or async .call(payload) → Payload
+  Pipeline     — orchestrator; .run() / .run_sync() / .stream()
+  Valve        — conditional filter; only runs when predicate returns True
+  Tap          — observation point; .observe() without modifying payload
+  Hook         — lifecycle callbacks: before / after / on_error
+  StreamFilter — async generator; receives one chunk, yields 0..N chunks
+  State        — execution metadata: executed, skipped, errors, chunks
+
+Install: pip install codeupipe
+Repo:    https://github.com/codeuchain/codeupipe
+
+================================================================================
+NAVIGATION — PLAIN TEXT ENDPOINTS (no HTML)
+================================================================================
+
+START HERE (recommended first page):
+  curl https://codeuchain.github.io/codeupipe/getting-started.txt
+
+FULL API REFERENCE (every type, every method):
+  curl https://codeuchain.github.io/codeupipe/concepts.txt
+
+ALL PAGE URLS:
+  curl https://codeuchain.github.io/codeupipe/curl.txt
+
+================================================================================
+PAGE MAP
+================================================================================
+
+  PATH                         DESCRIPTION
+  ---------------------------  ------------------------------------------------
+  /getting-started.txt         Quick start, first pipeline, CLI, testing helpers
+  /install.txt                 Install instructions, connectors, Python versions
+  /concepts.txt                Full API reference — all types with examples
+  /best-practices.txt          Project structure, naming, testing strategy
+  /deploy-guide.txt            Docker, Render (free), Vercel, Netlify — cup.toml
+  /module-index.txt            Package structure map, all public symbols
+  /roadmap.txt                 Expansion rings v0.1–v0.9+ with status
+  /blueprints/ring7.txt        Ring 7 design: deploy adapters, manifest, CLI
+  /blueprints/ring8.txt        Ring 8 design: connector protocol, marketplace
+  /blueprints/ring9.txt        Ring 9 design: marketplace index, first-party connectors
+
+================================================================================
+QUICK REFERENCE — CORE PATTERNS
+================================================================================
+
+MINIMAL PIPELINE:
+
+  from codeupipe import Payload, Pipeline
+
+  class MyFilter:
+      def call(self, payload):
+          return payload.insert("result", payload.get("input").upper())
+
+  pipeline = Pipeline()
+  pipeline.add_filter(MyFilter(), name="upper")
+  result = pipeline.run_sync(Payload({"input": "hello"}))
+  # result.get("result") == "HELLO"
+
+
+PAYLOAD IS IMMUTABLE — always return a new one:
+
+  # CORRECT
+  def call(self, payload):
+      return payload.insert("key", "value")   # returns new Payload
+
+  # WRONG — modifying in place does nothing
+  def call(self, payload):
+      payload["key"] = "value"                # AttributeError
+
+
+TESTING:
+
+  from codeupipe.testing import run_filter, assert_payload
+  result = run_filter(MyFilter(), {"input": "hello"})
+  assert_payload(result, result="HELLO")
+
+
+CLI:
+
+  cup new filter <name> <dir>        # scaffold filter + test
+  cup new pipeline <name> <dir>      # scaffold pipeline
+  cup lint <dir>                     # convention checks
+  cup run pipeline.json              # execute from config
+  cup deploy docker cup.toml         # generate Docker artifacts
+  cup deploy render cup.toml         # generate Render (free cloud) artifacts
+
+================================================================================
+CONNECTORS (optional packages)
+================================================================================
+
+  pip install codeupipe-postgres     # PostgreSQL: Query, Execute, Transaction
+  pip install codeupipe-stripe       # Stripe payments
+  pip install codeupipe-resend       # Email via Resend
+  pip install codeupipe-google-ai    # Google Gemini AI
+
+Connectors auto-register via entry points. Declared in cup.toml [connectors.*].
+
+================================================================================
+DEPLOY TARGETS
+================================================================================
+
+  docker   — generates Dockerfile + docker-compose.yml (local dev)
+  render   — generates render.yaml blueprint (free tier, no credit card)
+  vercel   — generates vercel.json + serverless functions
+  netlify  — generates netlify.toml + serverless functions
+
+================================================================================
+NOTES FOR AGENTS
+================================================================================
+
+- Strip HTML comment markers (<!-- cup:ref ... -->) from .txt files — these
+  are doc-freshness tracking markers used by the cup doc-check tool, not
+  content intended for end users.
+
+- Code blocks use standard Markdown fenced syntax (``` lang).
+
+- Tables use standard Markdown pipe syntax.
+
+- All examples in concepts.txt are verified against the actual source code
+  by the test suite (tests/test_docs_examples.py).
+
+- The framework has zero external runtime dependencies — everything shown
+  in the docs runs with only the Python standard library.
+
+================================================================================
