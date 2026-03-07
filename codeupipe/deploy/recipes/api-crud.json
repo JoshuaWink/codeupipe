@@ -1,0 +1,17 @@
+{
+  "recipe": {
+    "name": "api-crud",
+    "description": "REST API CRUD pipeline — validate, authorize, query, respond",
+    "variables": ["auth_provider", "db_provider"]
+  },
+  "pipeline": {
+    "name": "api-crud",
+    "steps": [
+      {"name": "ValidateInput", "type": "filter"},
+      {"name": "${auth_provider}Authorize", "type": "filter"},
+      {"name": "${db_provider}Query", "type": "filter"},
+      {"name": "FormatResponse", "type": "filter"}
+    ],
+    "require_input": ["method", "resource", "token"]
+  }
+}

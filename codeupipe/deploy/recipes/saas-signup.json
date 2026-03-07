@@ -1,0 +1,18 @@
+{
+  "recipe": {
+    "name": "saas-signup",
+    "description": "SaaS signup flow — validate, create user, send welcome email, start trial",
+    "variables": ["auth_provider", "email_provider", "payment_provider"]
+  },
+  "pipeline": {
+    "name": "signup",
+    "steps": [
+      {"name": "ValidateEmail", "type": "filter"},
+      {"name": "${auth_provider}CreateUser", "type": "filter"},
+      {"name": "${email_provider}SendWelcome", "type": "filter"},
+      {"name": "${payment_provider}StartTrial", "type": "filter"}
+    ],
+    "require_input": ["email", "password", "plan"],
+    "guarantee_output": ["user_id", "trial_id"]
+  }
+}

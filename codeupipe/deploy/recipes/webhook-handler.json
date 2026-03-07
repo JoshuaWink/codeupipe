@@ -1,0 +1,17 @@
+{
+  "recipe": {
+    "name": "webhook-handler",
+    "description": "Webhook handler — validate signature, parse payload, process, acknowledge",
+    "variables": ["source_provider"]
+  },
+  "pipeline": {
+    "name": "webhook-handler",
+    "steps": [
+      {"name": "${source_provider}ValidateSignature", "type": "filter"},
+      {"name": "ParseWebhookPayload", "type": "filter"},
+      {"name": "ProcessEvent", "type": "filter"},
+      {"name": "AuditLog", "type": "tap"}
+    ],
+    "require_input": ["raw_body", "signature"]
+  }
+}

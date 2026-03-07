@@ -1,0 +1,16 @@
+{
+  "recipe": {
+    "name": "etl",
+    "description": "Data ETL pipeline — extract from source, transform, load to sink",
+    "variables": ["source_provider", "sink_provider"]
+  },
+  "pipeline": {
+    "name": "etl",
+    "steps": [
+      {"name": "${source_provider}Extract", "type": "filter"},
+      {"name": "Transform", "type": "filter"},
+      {"name": "Validate", "type": "filter"},
+      {"name": "${sink_provider}Load", "type": "filter"}
+    ]
+  }
+}

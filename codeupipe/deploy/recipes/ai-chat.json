@@ -1,0 +1,18 @@
+{
+  "recipe": {
+    "name": "ai-chat",
+    "description": "AI chatbot pipeline — sanitize input, call LLM, filter response, format output",
+    "variables": ["ai_provider"]
+  },
+  "pipeline": {
+    "name": "ai-chat",
+    "steps": [
+      {"name": "SanitizeInput", "type": "filter"},
+      {"name": "${ai_provider}Chat", "type": "filter"},
+      {"name": "SafetyFilter", "type": "filter"},
+      {"name": "FormatResponse", "type": "filter"}
+    ],
+    "require_input": ["message"],
+    "guarantee_output": ["response"]
+  }
+}

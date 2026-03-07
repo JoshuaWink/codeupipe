@@ -77,11 +77,20 @@ Guarantees at the pipeline level — shape, time, rate, and failure policy.
 
 ---
 
-### Ring 7 — Accelerate
+### Ring 7 — Accelerate ✅ (v0.6.0)
 
-**Goal:** Zero to production. A developer (or agent) expresses intent; codeupipe assembles, deploys, connects, and monitors the system.**
+**Goal:** Zero to production. A developer (or agent) expresses intent; codeupipe assembles, deploys, connects, and monitors the system.
 
-This is the rapid-deployment ring — the one that turns codeupipe from a library into a launch pad.
+**Implemented (Ring 7a — Foundation):**
+- `codeupipe.deploy` package — `DeployAdapter` protocol, `DeployTarget` metadata, adapter discovery via entry points
+- `DockerAdapter` — built-in adapter generating Dockerfile, entrypoint, requirements.txt (auto-detects http/worker/cli mode)
+- `cup.toml` manifest parser — project metadata, deploy target, dependencies
+- Recipe engine — `resolve_recipe()` with `${variable}` substitution, 5 bundled templates (saas-signup, api-crud, etl, ai-chat, webhook-handler)
+- `cup init` project scaffolding — 4 templates (saas, api, etl, chatbot), generates cup.toml, pyproject.toml, pipelines/, filters/, tests/, CI workflow, README
+- CLI: `cup deploy`, `cup recipe`, `cup init` commands
+- 67 new tests (1204 total)
+
+**Designed (future phases):**
 
 #### Infrastructure Scaffolding
 
