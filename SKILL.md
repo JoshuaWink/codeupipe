@@ -19,17 +19,21 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Architecture Overview
 
-<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=791f774 -->
 ```
 Payload (data)
    │
    ▼
-Pipeline.run(payload)  ──or──  Pipeline.stream(async_iter)
+Pipeline.run(payload)  ──or──  Pipeline.run_sync(payload)  ──or──  Pipeline.stream(async_iter)
    │
    ├─ Hook.before()
    │
    ├─ Filter.call(payload) → payload     ← sync or async
    │   └─ Valve wraps a Filter + predicate
+   │
+   ├─ add_parallel([filters]) → fan-out/fan-in via asyncio.gather
+   │
+   ├─ add_pipeline(inner) → nested Pipeline as a single step
    │
    ├─ StreamFilter.stream(chunk) → yields 0..N chunks
    │
@@ -37,7 +41,11 @@ Pipeline.run(payload)  ──or──  Pipeline.stream(async_iter)
    │
    ├─ Hook.after()
    │
-   └─ Hook.on_error()  (on exception)
+   ├─ Hook.on_error()  (on exception)
+   │
+   ├─ with_retry(max_retries) → pipeline-level retry wrapper
+   │
+   └─ with_circuit_breaker(threshold) → opens after N consecutive failures
 ```
 <!-- /cup:ref -->
 
@@ -45,7 +53,7 @@ Pipeline.run(payload)  ──or──  Pipeline.stream(async_iter)
 
 ## Project Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=791f774 -->
 
 ```
 codeupipe/
@@ -179,7 +187,7 @@ README.md                    # Quick-start guide
 
 ## Core Types — Quick Reference
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=e3e2418 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
 | Type | Kind | Purpose |
 |---|---|---|
 | `Payload[T]` | Class | Immutable data container. `.get()`, `.insert()`, `.merge()`, `.to_dict()`, `.with_mutation()` |

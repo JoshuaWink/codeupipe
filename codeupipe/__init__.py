@@ -16,7 +16,7 @@ Core concepts:
 - Hook: Lifecycle hooks — before / after / on_error (sync or async)
 """
 
-from .core import Payload, MutablePayload, Filter, StreamFilter, Pipeline, Valve, Tap, State, Hook
+from .core import Payload, MutablePayload, Filter, StreamFilter, Pipeline, CircuitOpenError, Valve, Tap, State, Hook
 from .utils import ErrorHandlingMixin, RetryFilter
 from .converter import load_config, DEFAULT_CONFIG, PATTERN_DEFAULTS
 from .converter.pipelines import build_export_pipeline, build_import_pipeline
@@ -26,11 +26,11 @@ from importlib.metadata import version as _pkg_version, PackageNotFoundError
 try:
     __version__ = _pkg_version("codeupipe")
 except PackageNotFoundError:
-    __version__ = "0.2.0"  # fallback for editable / non-installed usage
+    __version__ = "0.3.0"  # fallback for editable / non-installed usage
 __all__ = [
     # Core
     "Payload", "MutablePayload",
-    "Filter", "StreamFilter", "Pipeline", "Valve", "Tap",
+    "Filter", "StreamFilter", "Pipeline", "CircuitOpenError", "Valve", "Tap",
     "State", "Hook",
     # Utils
     "ErrorHandlingMixin", "RetryFilter",

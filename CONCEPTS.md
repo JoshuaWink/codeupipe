@@ -35,7 +35,7 @@ State records what happened.
 Hooks attach lifecycle behaviour.
 ```
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=e3e2418 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
 | Concept | Role |
 |---|---|
 | `Payload` | The data box moving through the pipe — immutable |
@@ -184,7 +184,7 @@ class NormalizeFilter:
 
 ## Pipeline
 
-<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=93f2ead -->
+<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=e6dacf1 -->
 
 **The orchestrator — sequences filters, taps, and valves.**
 
@@ -217,9 +217,14 @@ asyncio.run(main())
 |---|---|
 | `pipeline.add_filter(filter, name=None)` | Append a Filter (or Valve) to the sequence |
 | `pipeline.add_tap(tap, name=None)` | Insert an observation point |
+| `pipeline.add_parallel(filters, name, names=None)` | Fan-out: run filters concurrently, merge results |
+| `pipeline.add_pipeline(pipeline, name)` | Nest a Pipeline as a single step |
 | `pipeline.use_hook(hook)` | Attach a lifecycle Hook |
 | `await pipeline.run(payload)` | Execute batch mode — return the final Payload |
+| `pipeline.run_sync(payload)` | Synchronous convenience — no manual `asyncio.run()` |
 | `async for chunk in pipeline.stream(source)` | Execute stream mode — yield chunks at constant memory |
+| `pipeline.with_retry(max_retries=3)` | Return a wrapper that retries the whole pipeline on failure |
+| `pipeline.with_circuit_breaker(failure_threshold=5)` | Return a wrapper that opens after N consecutive failures |
 | `pipeline.state` | Access execution metadata after `run()` or `stream()` |
 | `Pipeline.from_config(path, registry=)` | Build a pipeline from a `.toml` or `.json` config file |
 
@@ -740,7 +745,7 @@ asyncio.run(main())
 
 ## Quick Reference
 
-<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=791f774 -->
 ```python
 from codeupipe import (
     Payload,           # immutable data container

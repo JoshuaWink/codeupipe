@@ -6,6 +6,7 @@ Filters run in sequence; Valves provide conditional flow control;
 Taps provide observation points; Hooks provide lifecycle integration.
 """
 
+import asyncio
 import inspect
 import json
 import sys
@@ -18,7 +19,12 @@ from .tap import Tap
 from .hook import Hook
 from .state import State
 
-__all__ = ["Pipeline"]
+__all__ = ["Pipeline", "CircuitOpenError"]
+
+
+class CircuitOpenError(Exception):
+    """Raised when a circuit breaker is open and rejecting calls."""
+
 
 TInput = TypeVar('TInput')
 TOutput = TypeVar('TOutput')
@@ -57,6 +63,20 @@ class Pipeline(Generic[TInput, TOutput]):
         """Attach a lifecycle hook."""
         self._hooks.append(hook)
 
+    def add_parallel(
+        self, filters: List[Filter], name: str, *, names: Optional[List[str]] = None
+    ) -> None:
+        """Add a parallel fan-out/fan-in group of filters."""
+        self._steps.append((name, (filters, names), "parallel"))
+
+    def add_pipeline(self, pipeline: 'Pipeline', name: str) -> None:
+        """Nest a Pipeline as a single step inside this Pipeline."""
+        self._steps.append((name, pipeline, "pipeline"))
+
+    async def call(self, payload: Payload[TInput]) -> Payload[TOutput]:
+        """Filter protocol — allows a Pipeline to be used as a step in another Pipeline."""
+        return await self.run(payload)
+
     @staticmethod
     async def _invoke(fn, *args):
         """Call fn(*args), awaiting the result only if it is a coroutine."""
@@ -91,6 +111,25 @@ class Pipeline(Generic[TInput, TOutput]):
                     self._state.mark_executed(name)
                     continue
 
+                if step_type == "parallel":
+                    filters_list, _names = step
+                    results = await asyncio.gather(*[
+                        self._invoke(f.call, payload) for f in filters_list
+                    ])
+                    for result in results:
+                        payload = payload.merge(result)
+                    self._state.mark_executed(name)
+                    continue
+
+                if step_type == "pipeline":
+                    for hook in self._hooks:
+                        await self._invoke(hook.before, step, payload)
+                    payload = await step.run(payload)
+                    self._state.mark_executed(name)
+                    for hook in self._hooks:
+                        await self._invoke(hook.after, step, payload)
+                    continue
+
                 # It's a filter (or valve — valves conform to Filter protocol)
                 for hook in self._hooks:
                     await self._invoke(hook.before, step, payload)
@@ -116,6 +155,10 @@ class Pipeline(Generic[TInput, TOutput]):
             await self._invoke(hook.after, None, payload)
 
         return payload  # type: ignore
+
+    def run_sync(self, initial_payload: Payload[TInput]) -> Payload[TOutput]:
+        """Synchronous convenience wrapper — no manual asyncio.run() needed."""
+        return asyncio.run(self.run(initial_payload))
 
     # ------------------------------------------------------------------
     # Streaming
@@ -234,6 +277,18 @@ class Pipeline(Generic[TInput, TOutput]):
             await self._invoke(hook.after, step, Payload())
 
     # ------------------------------------------------------------------
+    # Resilience wrappers
+    # ------------------------------------------------------------------
+
+    def with_retry(self, max_retries: int = 3) -> '_RetryPipeline':
+        """Return a wrapper that retries the entire pipeline on failure."""
+        return _RetryPipeline(self, max_retries)
+
+    def with_circuit_breaker(self, failure_threshold: int = 5) -> '_CircuitBreakerPipeline':
+        """Return a wrapper that opens a circuit breaker after consecutive failures."""
+        return _CircuitBreakerPipeline(self, failure_threshold)
+
+    # ------------------------------------------------------------------
     # Config-driven assembly
     # ------------------------------------------------------------------
 
@@ -317,3 +372,52 @@ class Pipeline(Generic[TInput, TOutput]):
                 "TOML config requires Python 3.11+ or the 'tomli' package. "
                 "Install with: pip install tomli"
             )
+
+
+# ──────────────────────────────────────────────────────────────
+# Resilience wrappers (returned by Pipeline.with_retry / with_circuit_breaker)
+# ──────────────────────────────────────────────────────────────
+
+class _RetryPipeline:
+    """Wraps a Pipeline with retry logic — re-runs on failure up to max_retries times."""
+
+    def __init__(self, pipeline: Pipeline, max_retries: int):
+        self._pipeline = pipeline
+        self._max_retries = max_retries
+
+    async def run(self, payload: Payload) -> Payload:
+        last_error: Optional[Exception] = None
+        for _attempt in range(1 + self._max_retries):
+            try:
+                return await self._pipeline.run(payload)
+            except Exception as e:
+                last_error = e
+        raise last_error  # type: ignore[misc]
+
+    def run_sync(self, payload: Payload) -> Payload:
+        return asyncio.run(self.run(payload))
+
+
+class _CircuitBreakerPipeline:
+    """Wraps a Pipeline with a circuit breaker — opens after consecutive failures."""
+
+    def __init__(self, pipeline: Pipeline, failure_threshold: int):
+        self._pipeline = pipeline
+        self._failure_threshold = failure_threshold
+        self._consecutive_failures = 0
+
+    async def run(self, payload: Payload) -> Payload:
+        if self._consecutive_failures >= self._failure_threshold:
+            raise CircuitOpenError(
+                f"Circuit breaker open after {self._failure_threshold} consecutive failures"
+            )
+        try:
+            result = await self._pipeline.run(payload)
+            self._consecutive_failures = 0
+            return result
+        except Exception:
+            self._consecutive_failures += 1
+            raise
+
+    def run_sync(self, payload: Payload) -> Payload:
+        return asyncio.run(self.run(payload))

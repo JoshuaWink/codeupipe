@@ -18,7 +18,7 @@ Quick-reference map of the project. Every path listed here is verified by `cup d
 
 ## Package Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=791f774 -->
 ```
 codeupipe/
 ├── __init__.py              # Public API re-exports
@@ -61,7 +61,7 @@ codeupipe/
 
 ## Core Types
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=e3e2418 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
 | Type | Source | Role |
 |------|--------|------|
 | `Payload` | core/payload.py | Immutable data container |

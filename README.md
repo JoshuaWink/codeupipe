@@ -1,6 +1,6 @@
 # codeupipe
 
-<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=791f774 -->
 
 Python pipeline framework — composable **Payload → Filter → Pipeline** pattern with streaming support. Zero external dependencies.
 
@@ -10,7 +10,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Core Concepts
 
-<!-- cup:ref file=codeupipe/core/__init__.py hash=e3e2418 -->
+<!-- cup:ref file=codeupipe/core/__init__.py hash=bd391f6 -->
 | Concept | Role |
 |---|---|
 | **Payload** | Immutable data container flowing through the pipeline |
@@ -23,6 +23,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 | **State** | Pipeline execution metadata — tracks what ran, what was skipped, errors, chunk counts |
 | **Hook** | Lifecycle hooks — before/after/on_error for pipeline execution (sync or async) |
 | **RetryFilter** | Resilience wrapper — retries a Filter up to N times before giving up |
+| **CircuitOpenError** | Raised when a pipeline circuit breaker is open and rejecting calls |
 <!-- /cup:ref -->
 
 ## Install
@@ -125,6 +126,69 @@ class SplitWords:
             yield Payload({"word": word})
 ```
 
+## Synchronous Execution
+
+No manual `asyncio.run()` needed — `run_sync()` handles it:
+
+```python
+pipeline = Pipeline()
+pipeline.add_filter(CleanInput(), name="clean")
+pipeline.add_filter(Validate(), name="validate")
+
+result = pipeline.run_sync(Payload({"text": "  hello  "}))
+print(result.get("text"))  # "hello"
+```
+
+## Parallel Execution (Fan-out / Fan-in)
+
+Run independent filters concurrently; results merge back into the payload:
+
+```python
+pipeline = Pipeline()
+pipeline.add_parallel([
+    FetchUserFilter(),
+    FetchOrdersFilter(),
+    FetchRecommendationsFilter(),
+], name="fan-out")
+
+result = pipeline.run_sync(Payload({"user_id": 42}))
+```
+
+## Pipeline Nesting
+
+Compose pipelines from smaller pipelines:
+
+```python
+validation = Pipeline()
+validation.add_filter(CleanInput(), name="clean")
+validation.add_filter(Validate(), name="validate")
+
+processing = Pipeline()
+processing.add_pipeline(validation, name="validation-sub")
+processing.add_filter(TransformFilter(), name="transform")
+
+result = processing.run_sync(Payload({"text": "  hello  "}))
+```
+
+## Retry & Circuit Breaker
+
+Pipeline-level resilience wrappers:
+
+```python
+# Retry the entire pipeline up to 3 times on failure
+retrying = pipeline.with_retry(max_retries=3)
+result = retrying.run_sync(Payload({"input": "data"}))
+
+# Open the circuit after 5 consecutive failures
+from codeupipe import CircuitOpenError
+
+breaker = pipeline.with_circuit_breaker(failure_threshold=5)
+try:
+    result = breaker.run_sync(Payload({"input": "data"}))
+except CircuitOpenError:
+    print("Service unavailable — circuit is open")
+```
+
 ## Execution State
 
 ```python
@@ -183,7 +247,7 @@ def test_with_mock():
 ## Test
 
 ```bash
-pytest  # 909 tests
+pytest  # 1006 tests
 ```
 
 ## License
