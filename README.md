@@ -1,6 +1,6 @@
 # codeupipe
 
-<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
 
 Python pipeline framework — composable **Payload → Filter → Pipeline** pattern with streaming support. Zero external dependencies.
 
@@ -145,7 +145,7 @@ print(pipeline.state.chunks_processed)   # {'upper': 3}  (streaming mode)
 
 ## CLI (`cup`)
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=1e63d0e -->
+<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=12f4911 -->
 The `cup` command-line tool scaffolds, lints, and analyzes CUP projects:
 
 ```bash
@@ -157,6 +157,7 @@ cup lint src/signup                        # Check CUP conventions (CUP000–CUP
 cup coverage src/signup                    # Map component↔test coverage gaps
 cup report src/signup                      # Health report with scores, orphans, staleness
 cup doc-check .                            # Verify doc freshness (cup:ref markers)
+cup run pipeline.json --discover ./filters # Execute a pipeline from config
 ```
 <!-- /cup:ref -->
 

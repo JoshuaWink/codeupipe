@@ -338,7 +338,7 @@ pytest tests/ -v
 
 ### Available Commands
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=1e63d0e -->
+<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=12f4911 -->
 
 | Command | Purpose |
 |---|---|
@@ -350,6 +350,7 @@ pytest tests/ -v
 | `cup coverage <path>` | Map test coverage for components |
 | `cup report <path>` | Health report with scores, orphans, staleness |
 | `cup doc-check [path]` | Verify doc freshness (cup:ref markers) |
+| `cup run <config>` | Execute a pipeline from a TOML/JSON config |
 
 <!-- /cup:ref -->
 

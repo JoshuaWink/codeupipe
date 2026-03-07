@@ -19,7 +19,7 @@ Experimental successor to [codeuchain](https://github.com/codeuchain/codeuchain)
 
 ## Architecture Overview
 
-<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
 ```
 Payload (data)
    │
@@ -45,12 +45,13 @@ Pipeline.run(payload)  ──or──  Pipeline.stream(async_iter)
 
 ## Project Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
 
 ```
 codeupipe/
 ├── __init__.py              # Public API — all exports
 ├── py.typed                 # PEP 561 marker
+├── registry.py              # Registry, cup_component, default_registry
 ├── core/
 │   ├── __init__.py          # Re-exports core types
 │   ├── payload.py           # Payload[T], MutablePayload[T]
@@ -105,7 +106,7 @@ codeupipe/
 │   ├── assemble_doc_report.py  # AssembleDocReport — build doc-check report
 │   └── doc_check_pipeline.py   # build_doc_check_pipeline()
 ├── testing.py               # Test utilities — run_filter, assert_payload, mock_filter, etc.
-├── cli.py                   # CLI entry point — cup new/list/bundle/lint/coverage/report/doc-check
+├── cli.py                   # CLI entry point — cup new/list/bundle/lint/coverage/report/doc-check/run
 ├── utils/
 │   ├── __init__.py
 │   └── error_handling.py    # ErrorHandlingMixin, RetryFilter

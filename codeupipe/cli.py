@@ -9,6 +9,7 @@ Usage:
     cup coverage <path> [--tests-dir DIR]
     cup report <path> [--tests-dir DIR] [--json] [--detail] [--verbose]
     cup doc-check [path] [--json]
+    cup run <config> [--discover DIR] [--input JSON] [--json]
 
 Components:
     filter          Filter (sync def call) — Pipeline handles awaiting
@@ -1251,6 +1252,33 @@ def main(argv=None):
         help="Output raw JSON for piping to CI",
     )
 
+    # cup run <config> [--discover DIR] [--input JSON] [--json]
+    run_parser = sub.add_parser(
+        "run",
+        help="Execute a pipeline from a config file",
+    )
+    run_parser.add_argument(
+        "config",
+        help="Path to pipeline config file (.toml or .json)",
+    )
+    run_parser.add_argument(
+        "--discover",
+        metavar="DIR",
+        help="Directory to auto-discover components from",
+    )
+    run_parser.add_argument(
+        "--input",
+        metavar="JSON",
+        dest="input_json",
+        help="Initial payload data as a JSON string",
+    )
+    run_parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Output result payload as JSON",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "list":
@@ -1489,6 +1517,56 @@ def main(argv=None):
                     print(f"  {icon} {doc} → {src}: {msg}")
 
             print()
+            return 1
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
+    if args.command == "run":
+        try:
+            import asyncio
+            import json as json_mod
+
+            from codeupipe.registry import Registry
+            from codeupipe.core.pipeline import Pipeline
+
+            reg = Registry()
+
+            discover_dir = getattr(args, "discover", None)
+            if discover_dir:
+                count = reg.discover(discover_dir, recursive=True)
+
+            config_path = args.config
+            pipe = Pipeline.from_config(config_path, registry=reg)
+
+            # Build initial payload
+            input_data = {}
+            input_json = getattr(args, "input_json", None)
+            if input_json:
+                input_data = json_mod.loads(input_json)
+
+            result = asyncio.run(pipe.run(Payload(input_data)))
+
+            if getattr(args, "json_output", False):
+                print(json_mod.dumps(dict(result._data)))
+            else:
+                # Read pipeline name from config for display
+                config_text = Path(config_path).read_text()
+                if config_path.endswith(".json"):
+                    cfg = json_mod.loads(config_text)
+                else:
+                    cfg = {}
+                pipe_name = cfg.get("pipeline", {}).get("name", config_path)
+                print(f"Pipeline '{pipe_name}' complete")
+                for key, val in result._data.items():
+                    print(f"  {key}: {val}")
+
+            return 0
+        except FileNotFoundError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+        except KeyError as e:
+            print(f"Error: component not found — {e}", file=sys.stderr)
             return 1
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)

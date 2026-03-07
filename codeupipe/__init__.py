@@ -20,6 +20,7 @@ from .core import Payload, MutablePayload, Filter, StreamFilter, Pipeline, Valve
 from .utils import ErrorHandlingMixin, RetryFilter
 from .converter import load_config, DEFAULT_CONFIG, PATTERN_DEFAULTS
 from .converter.pipelines import build_export_pipeline, build_import_pipeline
+from .registry import Registry, cup_component, default_registry
 
 from importlib.metadata import version as _pkg_version, PackageNotFoundError
 try:
@@ -36,4 +37,6 @@ __all__ = [
     # Converter
     "load_config", "DEFAULT_CONFIG", "PATTERN_DEFAULTS",
     "build_export_pipeline", "build_import_pipeline",
+    # Registry
+    "Registry", "cup_component", "default_registry",
 ]

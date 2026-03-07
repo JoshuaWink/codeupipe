@@ -7,6 +7,9 @@ Taps provide observation points; Hooks provide lifecycle integration.
 """
 
 import inspect
+import json
+import sys
+from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple, TypeVar, Generic, Union
 from .payload import Payload
 from .filter import Filter
@@ -229,3 +232,88 @@ class Pipeline(Generic[TInput, TOutput]):
         # Fire hook.after once at the end of this step's stream
         for hook in self._hooks:
             await self._invoke(hook.after, step, Payload())
+
+    # ------------------------------------------------------------------
+    # Config-driven assembly
+    # ------------------------------------------------------------------
+
+    _VALID_STEP_TYPES = {"filter", "tap", "hook", "stream-filter", "valve"}
+
+    @classmethod
+    def from_config(cls, path: str, *, registry: Any) -> "Pipeline":
+        """Build a Pipeline from a TOML or JSON config file.
+
+        Config format (TOML shown, JSON identical structure):
+            [pipeline]
+            name = "my-pipeline"
+            [[pipeline.steps]]
+            name = "AddTenFilter"
+            type = "filter"
+            [pipeline.steps.config]
+            amount = 42
+
+        Args:
+            path: Path to a .toml or .json config file.
+            registry: A Registry instance for name → component resolution.
+
+        Returns:
+            A fully-assembled Pipeline ready to .run().
+        """
+        config_path = Path(path)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {path}")
+
+        suffix = config_path.suffix.lower()
+        text = config_path.read_text()
+
+        if suffix == ".toml":
+            data = cls._parse_toml(text)
+        elif suffix == ".json":
+            data = json.loads(text)
+        else:
+            raise ValueError(f"Unsupported config format '{suffix}'. Use .toml or .json")
+
+        if "pipeline" not in data:
+            raise ValueError("Config must contain a 'pipeline' key")
+
+        pipeline_cfg = data["pipeline"]
+        if "steps" not in pipeline_cfg:
+            raise ValueError("Config 'pipeline' must contain 'steps'")
+
+        pipe = cls()
+        for step_cfg in pipeline_cfg["steps"]:
+            step_name = step_cfg["name"]
+            step_type = step_cfg.get("type", "filter")
+            step_kwargs = step_cfg.get("config", {})
+
+            if step_type not in cls._VALID_STEP_TYPES:
+                raise ValueError(
+                    f"Unknown step type '{step_type}'. "
+                    f"Valid types: {', '.join(sorted(cls._VALID_STEP_TYPES))}"
+                )
+
+            instance = registry.get(step_name, **step_kwargs)
+
+            if step_type == "tap":
+                pipe.add_tap(instance, name=step_name)
+            elif step_type == "hook":
+                pipe.use_hook(instance)
+            else:
+                pipe.add_filter(instance, name=step_name)
+
+        return pipe
+
+    @staticmethod
+    def _parse_toml(text: str) -> dict:
+        """Parse TOML text, using stdlib tomllib (3.11+) or fallback."""
+        if sys.version_info >= (3, 11):
+            import tomllib
+            return tomllib.loads(text)
+        try:
+            import tomli
+            return tomli.loads(text)
+        except ImportError:
+            raise ImportError(
+                "TOML config requires Python 3.11+ or the 'tomli' package. "
+                "Install with: pip install tomli"
+            )

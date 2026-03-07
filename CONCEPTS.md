@@ -184,7 +184,7 @@ class NormalizeFilter:
 
 ## Pipeline
 
-<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=80c0c4e -->
+<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=93f2ead -->
 
 **The orchestrator — sequences filters, taps, and valves.**
 
@@ -221,6 +221,7 @@ asyncio.run(main())
 | `await pipeline.run(payload)` | Execute batch mode — return the final Payload |
 | `async for chunk in pipeline.stream(source)` | Execute stream mode — yield chunks at constant memory |
 | `pipeline.state` | Access execution metadata after `run()` or `stream()` |
+| `Pipeline.from_config(path, registry=)` | Build a pipeline from a `.toml` or `.json` config file |
 
 <!-- /cup:ref -->
 
@@ -739,7 +740,7 @@ asyncio.run(main())
 
 ## Quick Reference
 
-<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
 ```python
 from codeupipe import (
     Payload,           # immutable data container
@@ -752,6 +753,9 @@ from codeupipe import (
     State,             # execution metadata (read via pipeline.state)
     Hook,              # ABC — before / after / on_error
     RetryFilter,       # resilience wrapper
+    Registry,          # name → component catalog
+    cup_component,     # decorator — register a class as a CUP component
+    default_registry,  # module-level singleton Registry
 )
 ```
 <!-- /cup:ref -->

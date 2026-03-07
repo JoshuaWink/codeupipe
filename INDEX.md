@@ -18,7 +18,7 @@ Quick-reference map of the project. Every path listed here is verified by `cup d
 
 ## Package Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=afd4ab5 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=0e91304 -->
 ```
 codeupipe/
 ├── __init__.py              # Public API re-exports
@@ -28,11 +28,13 @@ codeupipe/
 │   ├── payload.py           # Payload, MutablePayload
 │   ├── filter.py            # Filter Protocol
 │   ├── stream_filter.py     # StreamFilter Protocol
-│   ├── pipeline.py          # Pipeline orchestrator
+│   ├── pipeline.py          # Pipeline orchestrator + from_config()
 │   ├── valve.py             # Valve — conditional gate
 │   ├── tap.py               # Tap Protocol — observation
 │   ├── state.py             # State — execution metadata
 │   └── hook.py              # Hook ABC — lifecycle
+│
+├── registry.py              # Registry, cup_component, default_registry
 │
 ├── utils/
 │   └── error_handling.py    # ErrorHandlingMixin, RetryFilter
@@ -51,7 +53,7 @@ codeupipe/
 │   └── (18 filter files)    # ScanDirectory, CheckNaming, etc.
 │
 ├── testing.py               # Test helpers — run_filter, assert_payload, etc.
-└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check
+└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check/run
 ```
 <!-- /cup:ref -->
 
@@ -141,9 +143,9 @@ codeupipe/
 
 ## CLI
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=1e63d0e -->
+<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=12f4911 -->
 | Command | Purpose |
-|---------|---------|
+|---------|---------||
 | `cup new <type> <name> [path]` | Scaffold component + test |
 | `cup list` | Show component types |
 | `cup bundle <path>` | Generate `__init__.py` re-exports |
@@ -151,13 +153,27 @@ codeupipe/
 | `cup coverage <path>` | Map test coverage |
 | `cup report <path>` | Health report |
 | `cup doc-check [path]` | Doc freshness check |
+| `cup run <config>` | Execute a pipeline from config (TOML/JSON) |
+<!-- /cup:ref -->
+
+---
+
+## Registry (Composability Layer)
+
+<!-- cup:ref file=codeupipe/registry.py symbols=Registry,cup_component,default_registry hash=5af5cbd -->
+| Export | Role |
+|--------|------|
+| `Registry` | Name → component catalog with `register()`, `get()`, `discover()` |
+| `cup_component` | Decorator — register a class with auto-name and auto-kind detection |
+| `default_registry` | Module-level singleton Registry |
+| `Pipeline.from_config()` | Build a Pipeline from a `.toml` or `.json` config file |
 <!-- /cup:ref -->
 
 ---
 
 ## Tests
 
-909 tests across 48 files. Full suite: `pytest`
+978 tests across 52 files. Full suite: `pytest`
 
 ---
 
