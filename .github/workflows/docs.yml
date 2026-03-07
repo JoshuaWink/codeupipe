@@ -46,6 +46,17 @@ jobs:
           cp docs/ring8-connect-blueprint.md docs/site/blueprints/ring8.md
           cp docs/ring9-marketplace-blueprint.md docs/site/blueprints/ring9.md
 
+      - name: Patch links for MkDocs
+        run: |
+          # Fix root-relative links in module-index (INDEX.md copy)
+          sed -i 's|\[README.md\](README.md)|[Home](index.md)|g' docs/site/module-index.md
+          sed -i 's|\[CONCEPTS.md\](CONCEPTS.md)|[Concepts](concepts.md)|g' docs/site/module-index.md
+          sed -i 's|\[BEST_PRACTICES.md\](BEST_PRACTICES.md)|[Best Practices](best-practices.md)|g' docs/site/module-index.md
+          sed -i 's|\[SKILL.md\](SKILL.md)||g' docs/site/module-index.md
+          sed -i 's|\[INDEX.md\](INDEX.md)|[Module Index](module-index.md)|g' docs/site/module-index.md
+          # Fix anchor in concepts (& → single dash)
+          sed -i 's|#streamfilter--streaming|#streamfilter-streaming|g' docs/site/concepts.md
+
       - name: Build site
         run: mkdocs build --strict
 
