@@ -30,3 +30,4 @@ htmlcov/
 
 # Build
 *.log
+/site/

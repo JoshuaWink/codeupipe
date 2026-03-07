@@ -1,0 +1,64 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'README.md'
+      - 'CONCEPTS.md'
+      - 'BEST_PRACTICES.md'
+      - 'INDEX.md'
+      - 'ROADMAP.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MkDocs + Material
+        run: pip install mkdocs-material
+
+      - name: Sync docs from root
+        run: |
+          cp CONCEPTS.md docs/site/concepts.md
+          cp BEST_PRACTICES.md docs/site/best-practices.md
+          cp INDEX.md docs/site/module-index.md
+          cp ROADMAP.md docs/site/roadmap.md
+          cp examples/gcal-dashboard/DEPLOY.md docs/site/deploy-guide.md
+          cp docs/ring7-blueprint.md docs/site/blueprints/ring7.md
+          cp docs/ring8-connect-blueprint.md docs/site/blueprints/ring8.md
+          cp docs/ring9-marketplace-blueprint.md docs/site/blueprints/ring9.md
+
+      - name: Build site
+        run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

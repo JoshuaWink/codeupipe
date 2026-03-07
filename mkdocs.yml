@@ -1,0 +1,75 @@
+site_name: codeupipe
+site_description: "Python pipeline framework — composable Payload → Filter → Pipeline pattern with streaming. Zero dependencies."
+site_url: https://codeuchain.github.io/codeupipe/
+repo_url: https://github.com/codeuchain/codeupipe
+repo_name: codeuchain/codeupipe
+
+docs_dir: docs/site
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: getting-started.md
+      - Install: install.md
+  - Concepts:
+      - API Reference: concepts.md
+  - Guides:
+      - Best Practices: best-practices.md
+      - Deploy Guide: deploy-guide.md
+  - Reference:
+      - Module Index: module-index.md
+      - Roadmap: roadmap.md
+  - Blueprints:
+      - "Ring 7 — Deploy": blueprints/ring7.md
+      - "Ring 8 — Connect": blueprints/ring8.md
+      - "Ring 9 — Marketplace": blueprints/ring9.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/codeuchain/codeupipe
