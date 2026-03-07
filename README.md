@@ -232,7 +232,7 @@ cup describe pipeline.json --json          # Machine-readable output (--json wor
 
 ## Testing Utilities
 
-<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,assert_payload,mock_filter hash=c119f9c -->
+<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,assert_payload,mock_filter hash=65f0296 -->
 `codeupipe.testing` provides zero-boilerplate test helpers:
 
 ```python

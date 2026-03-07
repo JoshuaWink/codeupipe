@@ -14,8 +14,11 @@ Usage:
 
 import asyncio
 import inspect
+import sys
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Dict, List, Optional, Sequence, Union
+from unittest.mock import MagicMock
 
 from codeupipe import Payload, Pipeline
 from codeupipe.core.hook import Hook
@@ -28,10 +31,12 @@ __all__ = [
     "assert_pipeline_streaming",
     "assert_payload",
     "assert_keys",
+    "assert_keys_absent",
     "assert_state",
     "mock_filter",
     "mock_tap",
     "mock_hook",
+    "mock_sdk_modules",
     "cup_component",
     "RecordingTap",
     "RecordingHook",
@@ -139,6 +144,19 @@ def assert_keys(payload: Payload, *keys: str) -> None:
         assert key in data, f"Payload missing expected key '{key}'. Keys present: {list(data.keys())}"
 
 
+def assert_keys_absent(payload: Payload, *keys: str) -> None:
+    """Assert payload does NOT contain any of the specified keys.
+
+    Usage:
+        assert_keys_absent(result, "password", "secret_token")
+    """
+    data = payload.to_dict()
+    for key in keys:
+        assert key not in data, (
+            f"Payload unexpectedly contains key '{key}'. Keys present: {list(data.keys())}"
+        )
+
+
 def assert_state(state: State, executed: Optional[List[str]] = None) -> None:
     """Assert pipeline state after execution.
 
@@ -243,6 +261,99 @@ def mock_hook() -> RecordingHook:
     return RecordingHook()
 
 
+# ── SDK Module Mocking ──────────────────────────────────────────────
+
+class _SDKModuleContext:
+    """Context manager that injects mock modules into sys.modules.
+
+    Saves originals, injects mocks, and restores on exit.
+    Also cleans up any connector modules that imported the mocks.
+    """
+
+    def __init__(
+        self,
+        modules: Dict[str, Any],
+        connector_prefix: Optional[str] = None,
+    ):
+        self._modules = modules
+        self._connector_prefix = connector_prefix
+        self._originals: Dict[str, Any] = {}
+
+    def __enter__(self) -> Dict[str, Any]:
+        for name, mock_mod in self._modules.items():
+            self._originals[name] = sys.modules.get(name)
+            sys.modules[name] = mock_mod
+        return self._modules
+
+    def __exit__(self, *exc):
+        for name, orig in self._originals.items():
+            if orig is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = orig
+        if self._connector_prefix:
+            for key in list(sys.modules):
+                if key.startswith(self._connector_prefix):
+                    del sys.modules[key]
+        return False
+
+
+def mock_sdk_modules(
+    module_names: Union[str, List[str]],
+    *,
+    connector_prefix: Optional[str] = None,
+) -> _SDKModuleContext:
+    """Create mock SDK modules for connector testing.
+
+    Injects MagicMock modules into sys.modules so connector code can
+    ``import sdk_name`` without the SDK being pip-installed.
+    Use as a context manager or in a pytest fixture.
+
+    Args:
+        module_names: Single module name or list of dotted names.
+            Example: ``"stripe"`` or ``["google", "google.genai", "google.genai.types"]``
+        connector_prefix: If set, cleans up all sys.modules entries
+            starting with this prefix on exit (e.g. ``"codeupipe_stripe"``).
+
+    Returns:
+        Context manager. ``__enter__`` returns dict of {name: mock_module}.
+
+    Usage (pytest fixture)::
+
+        @pytest.fixture(autouse=True)
+        def mock_stripe():
+            with mock_sdk_modules("stripe", connector_prefix="codeupipe_stripe") as mods:
+                yield mods["stripe"]
+
+    Usage (nested modules)::
+
+        @pytest.fixture(autouse=True)
+        def mock_google():
+            names = ["google", "google.genai", "google.genai.types"]
+            with mock_sdk_modules(names, connector_prefix="codeupipe_google_ai") as mods:
+                yield mods
+    """
+    if isinstance(module_names, str):
+        module_names = [module_names]
+
+    modules: Dict[str, Any] = {}
+    for name in module_names:
+        mock_mod = MagicMock(spec=ModuleType)
+        mock_mod.__name__ = name
+        mock_mod.__spec__ = None
+        modules[name] = mock_mod
+
+    # Wire parent→child relationships for dotted names
+    for name, mock_mod in modules.items():
+        parts = name.rsplit(".", 1)
+        if len(parts) == 2:
+            parent_name, child_attr = parts
+            if parent_name in modules:
+                setattr(modules[parent_name], child_attr, mock_mod)
+
+    return _SDKModuleContext(modules, connector_prefix)
+
+
 # ── Scaffolding ─────────────────────────────────────────────────────
 
 def _to_class_name(snake: str) -> str:
@@ -255,9 +366,19 @@ _TEMPLATES = {
         "class {cls}:\n"
         "{methods}\n"
     ),
+    "async-filter": (
+        "class {cls}:\n"
+        "    async def call(self, payload):\n"
+        "        return payload\n"
+    ),
     "tap": (
         "class {cls}:\n"
         "    def observe(self, payload):\n"
+        "        pass\n"
+    ),
+    "async-tap": (
+        "class {cls}:\n"
+        "    async def observe(self, payload):\n"
         "        pass\n"
     ),
     "hook": (
@@ -278,6 +399,29 @@ _TEMPLATES = {
     "builder": (
         "def build_{snake}():\n"
         "    pass\n"
+    ),
+    "valve": (
+        "from codeupipe import Valve\n\n\n"
+        "class {cls}Inner:\n"
+        "    def call(self, payload):\n"
+        "        return payload\n\n\n"
+        "def build_{snake}():\n"
+        "    return Valve(name='{snake}', inner={cls}Inner(), "
+        "predicate=lambda p: True)\n"
+    ),
+    "pipeline": (
+        "from codeupipe import Pipeline\n\n\n"
+        "def build_{snake}():\n"
+        "    pipeline = Pipeline()\n"
+        "    return pipeline\n"
+    ),
+    "retry-filter": (
+        "from codeupipe import RetryFilter\n\n\n"
+        "class {cls}Inner:\n"
+        "    async def call(self, payload):\n"
+        "        return payload\n\n\n"
+        "def build_{snake}(max_retries=3):\n"
+        "    return RetryFilter({cls}Inner(), max_retries=max_retries)\n"
     ),
 }
 
@@ -303,15 +447,25 @@ def cup_component(
     Args:
         directory: Where to create the .py file.
         name: snake_case component name.
-        kind: filter, tap, hook, stream-filter, builder.
+        kind: filter, async-filter, tap, async-tap, hook, stream-filter,
+              valve, pipeline, retry-filter, builder.
         with_test: Also create tests/test_{name}.py.
         methods: Custom method list (filter kind only).
 
     Returns:
         Path to the created component file.
     """
+    if kind not in _TEMPLATES:
+        raise ValueError(
+            f"Unknown kind '{kind}'. "
+            f"Valid kinds: {', '.join(sorted(_TEMPLATES.keys()))}"
+        )
+
     cls = _to_class_name(name)
     filepath = directory / f"{name}.py"
+
+    # Kinds that use {snake} in their template
+    _BUILDER_KINDS = {"builder", "valve", "pipeline", "retry-filter"}
 
     if kind == "filter":
         if methods:
@@ -322,8 +476,8 @@ def cup_component(
         else:
             methods_str = "    def call(self, payload):\n        return payload\n"
         source = _TEMPLATES["filter"].format(cls=cls, methods=methods_str)
-    elif kind == "builder":
-        source = _TEMPLATES["builder"].format(snake=name)
+    elif kind in _BUILDER_KINDS:
+        source = _TEMPLATES[kind].format(cls=cls, snake=name)
     else:
         source = _TEMPLATES[kind].format(cls=cls)
 
@@ -332,7 +486,7 @@ def cup_component(
     if with_test:
         tests_dir = directory / "tests"
         tests_dir.mkdir(exist_ok=True)
-        if kind == "builder":
+        if kind in _BUILDER_KINDS:
             symbol = f"build_{name}"
         else:
             symbol = cls

@@ -11,10 +11,12 @@ from codeupipe.testing import (
     assert_pipeline_streaming,
     assert_payload,
     assert_keys,
+    assert_keys_absent,
     assert_state,
     mock_filter,
     mock_tap,
     mock_hook,
+    mock_sdk_modules,
     cup_component,
     RecordingTap,
     RecordingHook,
@@ -348,3 +350,126 @@ class TestRecordingHook:
         assert hasattr(hook, "before_count")
         assert hasattr(hook, "after_count")
         assert hasattr(hook, "error_count")
+
+
+# ── assert_keys_absent ──────────────────────────────────────────────
+
+class TestAssertKeysAbsent:
+    """assert_keys_absent: verify payload does NOT contain specified keys."""
+
+    def test_passes_when_keys_missing(self):
+        p = Payload({"name": "alice"})
+        assert_keys_absent(p, "password", "secret")
+
+    def test_fails_when_key_present(self):
+        p = Payload({"name": "alice", "password": "oops"})
+        with pytest.raises(AssertionError, match="password"):
+            assert_keys_absent(p, "password")
+
+    def test_fails_on_first_present_key(self):
+        p = Payload({"a": 1, "b": 2})
+        with pytest.raises(AssertionError, match="a"):
+            assert_keys_absent(p, "a", "c")
+
+    def test_empty_payload_always_passes(self):
+        p = Payload({})
+        assert_keys_absent(p, "anything", "at_all")
+
+
+# ── mock_sdk_modules ────────────────────────────────────────────────
+
+class TestMockSdkModules:
+    """mock_sdk_modules: context manager for SDK module injection."""
+
+    def test_single_module_injection(self):
+        import sys
+        with mock_sdk_modules("fake_sdk_test_xyz") as mods:
+            assert "fake_sdk_test_xyz" in sys.modules
+            assert "fake_sdk_test_xyz" in mods
+        assert "fake_sdk_test_xyz" not in sys.modules
+
+    def test_dotted_module_wiring(self):
+        names = ["fake_parent", "fake_parent.child"]
+        with mock_sdk_modules(names) as mods:
+            parent = mods["fake_parent"]
+            child = mods["fake_parent.child"]
+            assert parent.child is child
+        import sys
+        assert "fake_parent" not in sys.modules
+        assert "fake_parent.child" not in sys.modules
+
+    def test_connector_prefix_cleanup(self):
+        import sys
+        sys.modules["codeupipe_test_conn.links"] = "sentinel"
+        try:
+            with mock_sdk_modules("fake_conn_sdk", connector_prefix="codeupipe_test_conn"):
+                pass
+            assert "codeupipe_test_conn.links" not in sys.modules
+        finally:
+            sys.modules.pop("codeupipe_test_conn.links", None)
+
+    def test_restores_original_module(self):
+        import sys
+        original = type(sys)("original_placeholder")
+        sys.modules["_test_restore_target"] = original
+        try:
+            with mock_sdk_modules("_test_restore_target"):
+                assert sys.modules["_test_restore_target"] is not original
+            assert sys.modules["_test_restore_target"] is original
+        finally:
+            sys.modules.pop("_test_restore_target", None)
+
+    def test_string_arg_accepts_single_name(self):
+        with mock_sdk_modules("single_test_mod_xyz") as mods:
+            assert "single_test_mod_xyz" in mods
+
+
+# ── cup_component: new kinds ────────────────────────────────────────
+
+class TestCupComponentNewKinds:
+    """cup_component: verify scaffolding for async-filter, async-tap, valve, pipeline, retry-filter."""
+
+    def test_creates_async_filter(self, tmp_path):
+        path = cup_component(tmp_path, "async_transform", "async-filter")
+        source = path.read_text()
+        assert "class AsyncTransform" in source
+        assert "async def call" in source
+
+    def test_creates_async_tap(self, tmp_path):
+        path = cup_component(tmp_path, "async_logger", "async-tap")
+        source = path.read_text()
+        assert "class AsyncLogger" in source
+        assert "async def observe" in source
+
+    def test_creates_valve(self, tmp_path):
+        path = cup_component(tmp_path, "age_gate", "valve")
+        source = path.read_text()
+        assert "AgeGate" in source
+        assert "Valve" in source
+        assert "def build_age_gate" in source
+
+    def test_creates_pipeline(self, tmp_path):
+        path = cup_component(tmp_path, "order_pipeline", "pipeline")
+        source = path.read_text()
+        assert "def build_order_pipeline" in source
+
+    def test_creates_retry_filter(self, tmp_path):
+        path = cup_component(tmp_path, "flaky_call", "retry-filter")
+        source = path.read_text()
+        assert "def build_flaky_call" in source
+
+    def test_valve_with_test(self, tmp_path):
+        cup_component(tmp_path, "age_gate", "valve", with_test=True)
+        test_file = tmp_path / "tests" / "test_age_gate.py"
+        assert test_file.exists()
+
+    def test_pipeline_with_test(self, tmp_path):
+        cup_component(tmp_path, "order_pipeline", "pipeline", with_test=True)
+        test_file = tmp_path / "tests" / "test_order_pipeline.py"
+        assert test_file.exists()
+        source = test_file.read_text()
+        assert "build_order_pipeline" in source
+
+    def test_unknown_kind_raises(self, tmp_path):
+        with pytest.raises(ValueError, match="Unknown kind"):
+            cup_component(tmp_path, "nope", "foobar")

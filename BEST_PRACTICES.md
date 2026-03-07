@@ -266,7 +266,7 @@ Use `.with_mutation()` only when performance requires in-place edits (batch proc
 2. **Integration tests** — Test the composed pipeline with synthetic data
 3. **End-to-end tests** — Test with real services and verify outcomes
 
-<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_state hash=c119f9c -->
+<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_state hash=65f0296 -->
 
 ### Unit Test Pattern
 

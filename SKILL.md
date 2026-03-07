@@ -234,7 +234,7 @@ README.md                    # Quick-start guide
 
 ### Testing Utilities (`from codeupipe.testing import ...`)
 
-<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_keys,assert_state,mock_filter hash=c119f9c -->
+<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_keys,assert_state,mock_filter hash=65f0296 -->
 
 | Export | Kind | Purpose |
 |---|---|---|

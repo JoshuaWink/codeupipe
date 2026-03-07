@@ -265,7 +265,7 @@ codeupipe/
 
 ## Testing Utilities
 
-<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_keys,assert_state,mock_filter hash=c119f9c -->
+<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,run_pipeline,assert_payload,assert_keys,assert_state,mock_filter hash=65f0296 -->
 | Helper | Purpose |
 |--------|---------|
 | `run_filter(filter, data)` | Run one filter, returns Payload |
