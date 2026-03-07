@@ -31,7 +31,11 @@ jobs:
         run: python -m pytest --tb=short -q
 
       - name: Lint components
-        run: cup lint codeupipe
+        run: |
+          cup lint codeupipe/core
+          cup lint codeupipe/utils
+          cup lint codeupipe/converter
+          cup lint codeupipe/linter
 
       - name: Doc freshness check
         run: cup doc-check .
