@@ -6,6 +6,25 @@ The guiding principle: **zero to production in moments.** Every ring we add shou
 
 ---
 
+## Where We Are
+
+```
+Ring 1  Ship           ████████████  v0.1.0  ✅
+Ring 2  Compose        ████████████  v0.2.0  ✅
+Ring 3  Execute        ████████████  v0.3.0  ✅
+Ring 4  Observe        ████████████  v0.4.0  ✅
+Ring 5  Distribute     ████████████  v0.4.0  ✅
+Ring 6  Govern         ████████████  v0.5.0  ✅  (no tag — bundled into v0.4.0 release)
+Ring 7  Accelerate     ████████████  v0.7.0  ✅
+Ring 8  Connect        ████████████  v0.8.0  ✅
+Ring 9  Marketplace    ████████████  v0.9.0  ✅  ← YOU ARE HERE
+Ring 10 ???            ░░░░░░░░░░░░          next
+```
+
+**1326 core tests + 31 connector tests = 1357 total. 59 doc refs verified. Zero external dependencies in core.**
+
+---
+
 ## Completed Rings
 
 ### Ring 1 — Ship ✅ (v0.1.0)
@@ -15,7 +34,7 @@ Automated release pipeline. Push to main, tag, publish to PyPI.
 - CI workflow (Python 3.9–3.13 matrix, pytest, lint)
 - Release workflow (tag `v*` → build → publish to PyPI)
 - `cup` CLI with 9 commands (scaffold, lint, bundle, coverage, report, doc-check, run)
-- `cup:ref` doc verification system
+- `cup:ref` doc verification system + pre-commit hook enforcement
 
 ### Ring 2 — Compose ✅ (v0.2.0)
 
@@ -58,8 +77,6 @@ Cross-process and network boundaries without changing pipeline logic.
 - **Source adapters** — `IterableSource`, `FileSource` for `pipeline.stream()`
 - **WorkerPool** — thread/process pool for CPU-bound work inside filters
 
----
-
 ### Ring 6 — Govern ✅ (v0.5.0)
 
 Guarantees at the pipeline level — shape, time, rate, and failure policy.
@@ -75,202 +92,161 @@ Guarantees at the pipeline level — shape, time, rate, and failure policy.
 - Events: `pipeline.timeout`, `dead_letter`
 - Config-driven: `timeout`, `rate_limit`, `require_input`, `guarantee_output`, `dead_letter`
 
----
+### Ring 7 — Accelerate ✅ (v0.7.0)
 
-### Ring 7 — Accelerate ✅ (v0.6.0)
+Zero to production. Intent → scaffold → deploy.
 
-**Goal:** Zero to production. A developer (or agent) expresses intent; codeupipe assembles, deploys, connects, and monitors the system.
-
-**Implemented (Ring 7a — Foundation):**
 - `codeupipe.deploy` package — `DeployAdapter` protocol, `DeployTarget` metadata, adapter discovery via entry points
-- `DockerAdapter` — built-in adapter generating Dockerfile, entrypoint, requirements.txt (auto-detects http/worker/cli mode)
+- `DockerAdapter` — Dockerfile, entrypoint, requirements.txt (auto-detects http/worker/cli mode)
+- `VercelAdapter` / `NetlifyAdapter` — serverless handler wrappers + frontend scaffolding
 - `cup.toml` manifest parser — project metadata, deploy target, dependencies
 - Recipe engine — `resolve_recipe()` with `${variable}` substitution, 5 bundled templates (saas-signup, api-crud, etl, ai-chat, webhook-handler)
 - `cup init` project scaffolding — 4 templates (saas, api, etl, chatbot), generates cup.toml, pyproject.toml, pipelines/, filters/, tests/, CI workflow, README
-- CLI: `cup deploy`, `cup recipe`, `cup init` commands
-- 67 new tests (1204 total)
+- CLI: `cup deploy`, `cup recipe`, `cup init`
 
-**Designed (future phases):**
+### Ring 8 — Connect ✅ (v0.8.0)
 
-#### Infrastructure Scaffolding
+Connector protocol — standardized way to wire external services into pipelines.
 
-| Feature | Description |
+- `ConnectorConfig` — parse `[connectors.*]` from cup.toml, env-var resolution
+- `discover_connectors()` — entry-point discovery + auto-registration into Registry
+- `check_health()` — pre-flight health checks for all registered connectors
+- `HttpConnector` — built-in REST connector (stdlib urllib, zero deps)
+- CLI: `cup connect --list`, `cup describe <connector>`, `--json` global flag
+
+### Ring 9 — Marketplace ✅ (v0.9.0)
+
+Connector discoverability + first four production connectors.
+
+- **Marketplace infrastructure:**
+  - `codeupipe.marketplace` package — `fetch_index`, `search`, `info`, `MarketplaceError`
+  - JSON index with cache (1hr TTL, stale-on-error fallback), `CUP_MARKETPLACE_URL` env override
+  - CLI: `cup marketplace search|info|install` with `--json` support
+  - Trust tiers: verified (✅) / community (🔷)
+  - `marketplace/index.json` — static index with 4 verified entries
+
+- **First-party connectors** (each a standalone PyPI package in `connectors/`):
+
+  | Package | Filters | SDK |
+  |---|---|---|
+  | `codeupipe-google-ai` | generate, generate_stream, embed, vision | google-genai |
+  | `codeupipe-stripe` | checkout, subscription, webhook, customer | stripe |
+  | `codeupipe-postgres` | query, execute, transaction, bulk_insert | psycopg |
+  | `codeupipe-resend` | email, template | resend |
+
+- 40 marketplace tests + 31 connector tests = 71 new tests
+
+---
+
+## What's Next — Open Directions
+
+Everything below is **unscheduled**. These are the natural next moves given what exists, not commitments. Pick what creates the most value and build it.
+
+### Harden & Ship (v1.0 candidate)
+
+The framework has 9 rings, 1357 tests, and a connector ecosystem. A v1.0 signals stability.
+
+| Work | What It Means |
 |---|---|
-| **`cup deploy`** | One command to deploy a pipeline to a cloud target. `cup deploy aws`, `cup deploy azure`, `cup deploy fly`. Detects the pipeline config, generates infra, deploys. |
-| **AWS Lambda adapter** | Wrap any Pipeline as a Lambda handler. `cup deploy aws-lambda pipeline.json` generates the handler, SAM/CDK template, and deploys. |
-| **AWS ECS/Fargate adapter** | For long-running or streaming pipelines. Generates Dockerfile + task definition. |
-| **Azure Functions adapter** | Same pattern — wrap Pipeline as an Azure Function trigger. |
-| **Azure Container Apps adapter** | Streaming/long-running pipelines on ACA. |
-| **GCP Cloud Run adapter** | Pipeline → containerized Cloud Run service. |
-| **Fly.io / Railway adapters** | For indie/startup speed. `cup deploy fly` and you're live. |
+| **API stability audit** | Lock down public interfaces — breaking changes are versioned after this |
+| **Documentation site** | Real docs (mkdocs/sphinx), not just INDEX.md. Tutorials, API reference, connector authoring guide |
+| **PyPI presence for connectors** | Actually publish codeupipe-google-ai, codeupipe-stripe, etc. to PyPI |
+| **Integration test suite** | Real SDK calls against sandbox accounts (Stripe test mode, Resend test domain, etc.) |
+| **Error message polish** | Every user-facing error should guide them to the fix |
 
-#### Service Connectors (Contrib Filters)
+### Expand the Connector Catalog
 
-Pre-built, tested, registry-discoverable filters for common services:
+More connectors follow the exact same pattern. Each is an independent package.
 
-| Filter Pack | Services |
+| Category | Candidates |
 |---|---|
-| **`codeupipe-payments`** | Stripe (checkout, subscriptions, webhooks, invoicing), PayPal, LemonSqueezy |
-| **`codeupipe-auth`** | Auth0, Clerk, Supabase Auth, Firebase Auth, JWT validation |
-| **`codeupipe-email`** | SendGrid, Resend, Postmark, SES, Mailgun |
-| **`codeupipe-storage`** | S3, GCS, Azure Blob, R2, Supabase Storage |
-| **`codeupipe-database`** | PostgreSQL, MySQL, SQLite, DynamoDB, Supabase, PlanetScale |
-| **`codeupipe-cache`** | Redis, Memcached, DynamoDB DAX |
-| **`codeupipe-search`** | Algolia, Meilisearch, Elasticsearch, Typesense |
-| **`codeupipe-ai`** | OpenAI, Anthropic, Ollama, Hugging Face, LangChain bridge |
-| **`codeupipe-cms`** | Contentful, Sanity, Strapi, Notion API |
-| **`codeupipe-analytics`** | Mixpanel, PostHog, Amplitude, Segment |
-| **`codeupipe-notifications`** | Twilio (SMS), Pusher, OneSignal, Firebase Cloud Messaging |
-| **`codeupipe-files`** | CSV, Excel, Parquet, PDF parse, image resize, video transcode |
+| **AI** | Anthropic, Ollama, Hugging Face |
+| **Payments** | PayPal, LemonSqueezy |
+| **Auth** | Auth0, Clerk, Supabase Auth, Firebase Auth, JWT validation |
+| **Email** | SendGrid, Postmark, SES, Mailgun |
+| **Storage** | S3, GCS, Azure Blob, Supabase Storage |
+| **Database** | MySQL, SQLite, DynamoDB, MongoDB |
+| **Cache** | Redis, Memcached |
+| **Search** | Algolia, Meilisearch, Elasticsearch |
+| **Notifications** | Twilio (SMS), Pusher, OneSignal |
 
-#### Rapid Composition Recipes
+### Cloud Deploy Adapters
 
-Pre-built pipeline configs for common business workflows:
+The deploy protocol exists (Ring 7). These are new adapters plugging into it.
 
-```bash
-# SaaS signup flow — validate, create user, send welcome email, start trial
-cup recipe saas-signup --auth clerk --email resend --payments stripe
+| Adapter | What It Does |
+|---|---|
+| **AWS Lambda** | Pipeline → Lambda handler + SAM/CDK template |
+| **AWS ECS/Fargate** | Long-running/streaming pipelines → task definition |
+| **Azure Functions** | Pipeline → Azure Function trigger |
+| **Azure Container Apps** | Streaming pipelines → ACA deployment |
+| **GCP Cloud Run** | Pipeline → containerized Cloud Run service |
+| **Fly.io / Railway** | Indie/startup speed deploys |
 
-# E-commerce checkout — cart validation, payment, inventory update, confirmation
-cup recipe checkout --payments stripe --email sendgrid --db postgres
+### Developer Experience
 
-# Content pipeline — CMS webhook → transform → CDN purge → notify
-cup recipe content-publish --cms contentful --storage s3 --notifications pusher
+| Feature | What It Does |
+|---|---|
+| **`cup studio`** | Visual pipeline builder — local web UI or VS Code extension |
+| **Pipeline hub** | Shareable pipeline configs: `cup install recipe-name` |
+| **Organization registries** | Private Registry servers for enterprise teams |
+| **Richer recipes** | Recipes that auto-resolve connector dependencies from the marketplace |
 
-# AI chatbot — input sanitize → LLM call → safety filter → response format
-cup recipe ai-chat --ai openai --safety moderate --output json
+### Polyglot Runtime (Long-term)
 
-# Data ETL — extract from API, transform, load to warehouse
-cup recipe etl --source rest-api --transform json --sink postgres
+Write pipeline configs once, run them in any language. The codeuchain vision.
+
+| Feature | What It Does |
+|---|---|
+| **Wire protocol spec** | Language-agnostic Payload/Filter/Pipeline serialization spec |
+| **TypeScript runtime** | Edge/serverless (Cloudflare Workers, Deno Deploy, Vercel Edge) |
+| **Rust runtime** | Native-speed executor for performance-critical workloads |
+| **Go runtime** | Concurrent executor for infrastructure-heavy deployments |
+| **Cross-runtime orchestration** | Python filters + Rust filters + Go filters in one pipeline |
+| **WASM filter support** | Compile filters to WebAssembly, run in any runtime |
+
+---
+
+## Architecture Snapshot (v0.9.0)
+
 ```
+codeupipe/
+├── core/           Ring 1-4   Payload, Filter, Tap, Hook, StreamFilter, Valve,
+│                              Pipeline, State, Event, Govern
+├── distribute/     Ring 5     RemoteFilter, Checkpoint, Source, WorkerPool
+├── deploy/         Ring 7     Adapters (Docker, Vercel, Netlify), Recipes, Init
+├── connect/        Ring 8     ConnectorConfig, discover_connectors, HttpConnector
+├── marketplace/    Ring 9     fetch_index, search, info, marketplace CLI
+├── linter/         Ring 1     Dogfooded lint/coverage/doc-check pipelines
+├── converter/      Ring 2     Config pipeline assembly helpers
+├── registry.py     Ring 2     Registry, cup_component, default_registry
+├── testing.py      Ring 1     run_filter, run_pipeline, assert_payload, mock_filter
+└── cli.py          Ring 1+    14 commands: new, list, bundle, lint, coverage,
+                               report, doc-check, run, deploy, recipe, init,
+                               connect, describe, marketplace
 
-Each recipe is a TOML/JSON pipeline config + the filter dependencies. `cup recipe` writes the config, discovers or installs the filters, and optionally deploys.
-
-#### Project Bootstrapping
-
-```bash
-# Full-stack SaaS in one command
-cup init saas my-app \
-  --frontend next \
-  --api codeupipe \
-  --auth clerk \
-  --payments stripe \
-  --db supabase \
-  --deploy vercel+aws-lambda
-
-# Generates:
-#   my-app/
-#   ├── frontend/          (Next.js scaffold)
-#   ├── api/
-#   │   ├── pipelines/     (signup, checkout, webhook handlers)
-#   │   ├── filters/       (auth, payment, db filters)
-#   │   └── pipeline.toml  (composable config)
-#   ├── infra/             (CDK/Terraform for AWS Lambda)
-#   ├── .github/workflows/ (CI + deploy)
-#   └── cup.toml           (project manifest)
+connectors/                    Ring 9 — standalone PyPI packages
+├── codeupipe-google-ai/       4 filters (generate, stream, embed, vision)
+├── codeupipe-stripe/          4 filters (checkout, subscription, webhook, customer)
+├── codeupipe-postgres/        4 filters (query, execute, transaction, bulk_insert)
+└── codeupipe-resend/          2 filters (email, template)
 ```
 
 ---
 
-### Ring 8 — Ecosystem
-
-**Goal:** Community-driven growth. Other people build and share filters, pipelines, and tools.
-
-| Feature | Description |
-|---|---|
-| **`codeupipe-contrib`** | Curated collection of common filters — community-reviewed, well-tested, registry-discoverable. |
-| **Plugin protocol** | Formal extension points via Python entry points. Custom step types, serializers, executors, deploy targets. |
-| **Pipeline hub** | Shareable pipeline configs. `cup install recipe-name` pulls a config + resolves filter dependencies. |
-| **`cup studio`** | Visual pipeline builder — local web UI or VS Code extension. Drag filters, connect them, export config. Non-developers can build pipelines. |
-| **Template marketplace** | Full project templates (SaaS, API, data pipeline, chatbot) that teams can fork and customize. |
-| **Organization registries** | Private Registry servers for enterprise teams. `cup login org.registry.io` + `cup discover --registry org`. |
-
----
-
-### Ring 9 — Polyglot Runtime
-
-**Goal:** Write pipeline configs once, run them in any language. The codeuchain vision fully realized.
-
-| Feature | Description |
-|---|---|
-| **Wire protocol spec** | Formal specification for Payload serialization, Filter invocation, Pipeline execution. Language-agnostic. |
-| **Rust runtime** | Native-speed Pipeline executor that reads the same .toml/.json configs. For performance-critical production workloads. |
-| **Go runtime** | Concurrent Pipeline executor for infrastructure-heavy deployments. |
-| **TypeScript runtime** | For edge/serverless (Cloudflare Workers, Deno Deploy, Vercel Edge). |
-| **Cross-runtime orchestration** | A pipeline where some filters run in Python, some in Rust, some in Go. The orchestrator handles serialization and dispatch transparently. |
-| **WASM filter support** | Filters compiled to WebAssembly run in any runtime. Write once in Rust/Go, use everywhere. |
-
----
-
-## Late Game — Platform Vision (Years 3–5+)
-
-```
-                              ┌──────────────────┐
-                              │    cup studio     │
-                              │   (visual IDE)    │
-                              └────────┬─────────┘
-                                       │
-                     ┌─────────────────┼─────────────────┐
-                     │                 │                 │
-               ┌─────┴─────┐   ┌──────┴──────┐   ┌─────┴─────┐
-               │  Pipeline  │   │  Template    │   │  Recipe    │
-               │  Hub       │   │  Market      │   │  Library   │
-               └─────┬─────┘   └──────┬──────┘   └─────┬─────┘
-                     │                 │                 │
-                     └─────────────────┼─────────────────┘
-                                       │
-                              ┌────────┴─────────┐
-                              │ Pipeline Config   │
-                              │ (.toml / .json)   │
-                              └────────┬─────────┘
-                                       │
-               ┌───────────────────────┼───────────────────────┐
-               │                       │                       │
-         ┌─────┴─────┐         ┌──────┴──────┐         ┌─────┴─────┐
-         │ Python RT  │         │  Rust RT    │         │  TS RT    │
-         │ (core)     │         │  (perf)     │         │  (edge)   │
-         └─────┬─────┘         └──────┬──────┘         └─────┴─────┘
-               │                       │                       │
-               └───────────────────────┼───────────────────────┘
-                                       │
-         ┌─────────────────────────────┼─────────────────────────────┐
-         │                             │                             │
-   ┌─────┴─────┐               ┌──────┴──────┐              ┌──────┴──────┐
-   │ AWS        │               │ Azure       │              │ Fly/Railway │
-   │ Lambda/ECS │               │ Functions   │              │ Edge        │
-   └───────────┘               │ Container   │              └─────────────┘
-                               └─────────────┘
-```
-
-### The Compounding Moat
-
-1. **Config portability** — a pipeline config works across runtimes and clouds
-2. **Registry network effects** — every filter anyone writes is discoverable and reusable
-3. **Visual accessibility** — non-developers build pipelines in `cup studio`, developers debug them
-4. **Institutional documentation** — pipeline configs *are* the system documentation
-5. **Rapid deployment** — `cup deploy` eliminates the infra gap between idea and production
-6. **Service connectors** — pre-built integrations with every major service mean you wire, not build
+## Principles
 
 ### What We Will NOT Build
-
-Equally important — the boundaries that keep the core sharp:
 
 - **Not a scheduler.** Airflow/Prefect/Dagster schedule tasks. codeupipe is the logic *inside* the task.
 - **Not a message broker.** Kafka/RabbitMQ move messages. codeupipe *consumes from* them via source adapters.
 - **Not an ORM.** Database filters are thin wrappers, not a query builder.
 - **Not a web framework.** Flask/FastAPI serve HTTP. codeupipe pipelines are the handler logic behind a route.
-- **Zero-dep core, always.** Every ring beyond 3 is an optional extra. The core stays pure Python, zero dependencies, Python 3.9+.
+- **Zero-dep core, always.** Connectors have their SDK deps. The core stays pure Python, zero dependencies, Python 3.9+.
 
----
+### What We Always Do
 
-## Timeline
-
-| Phase | Rings | Version | Focus |
-|---|---|---|---|
-| **Foundation** | 1–3 | v0.1–v0.3 | Core framework, CLI, composability, execution modes |
-| **Production** | 4–5 | v0.4 | Observability, distribution, serialization |
-| **Enterprise** | 6–7 | v0.5–v1.0 | Governance, deployment adapters, service connectors |
-| **Community** | 8 | v1.x | Contrib, plugins, hub, visual tooling |
-| **Platform** | 9 | v2.x | Multi-language runtimes, cross-runtime orchestration |
-
-Each ring builds on the previous. No ring is started until the prior ring is tested, documented, and shipped.
+- Every ring is tested, documented, and shipped before the next starts.
+- `cup doc-check` + `cup lint` enforced by pre-commit hook.
+- Trust but verify — tests hit real services where possible, mocks where necessary.
+- Each ring builds on the previous. No skipping.
