@@ -2323,3 +2323,389 @@ class TestHuggingFaceDiscovery:
     def test_hf_export_top_level(self):
         from codeupipe import HuggingFaceAdapter
         assert HuggingFaceAdapter is not None
+
+
+# ── Movement 1: Cross-axis Validation ──────────────────────────────
+
+class TestCrossAxisValidation:
+    """Tests for validate_ci_deploy() advisory warnings."""
+
+    def test_docker_never_warns(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        warnings = validate_ci_deploy(["github", "gitlab"], "docker")
+        assert warnings == []
+
+    def test_auto_deploy_target_warns(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        warnings = validate_ci_deploy(["github"], "render")
+        assert len(warnings) == 1
+        assert "auto-deploys" in warnings[0]
+
+    def test_auto_deploy_warns_per_provider(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        warnings = validate_ci_deploy(["github", "gitlab"], "railway")
+        assert len(warnings) == 2
+
+    def test_cd_command_target_no_warning(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        warnings = validate_ci_deploy(["github"], "vercel")
+        assert warnings == []
+
+    def test_fly_no_warning(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        assert validate_ci_deploy(["jenkins"], "fly") == []
+
+    def test_auto_deploy_targets_covered(self):
+        from codeupipe.deploy.init import validate_ci_deploy
+        for target in ("render", "railway", "koyeb", "hf-spaces"):
+            w = validate_ci_deploy(["github"], target)
+            assert len(w) == 1, f"{target} should produce a warning"
+
+
+# ── Movement 2: CD Integration ─────────────────────────────────────
+
+class TestCDIntegration:
+    """Tests for deploy/CD steps injected into CI configs."""
+
+    def test_github_ci_no_cd_for_docker(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gh-docker", str(tmp_path / "gh-docker"),
+                      ci_provider="github", deploy_target="docker")
+        text = (tmp_path / "gh-docker" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "deploy:" not in text.lower().replace("deploy_target", "")
+
+    def test_github_ci_cd_vercel(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gh-vercel", str(tmp_path / "gh-vercel"),
+                      ci_provider="github", deploy_target="vercel")
+        text = (tmp_path / "gh-vercel" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "deploy:" in text
+        assert "npx vercel deploy --prod" in text
+        assert "needs: test" in text
+
+    def test_github_ci_cd_fly(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gh-fly", str(tmp_path / "gh-fly"),
+                      ci_provider="github", deploy_target="fly")
+        text = (tmp_path / "gh-fly" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "flyctl deploy" in text
+
+    def test_gitlab_ci_cd_adds_deploy_stage(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gl-cd", str(tmp_path / "gl-cd"),
+                      ci_provider="gitlab", deploy_target="cloudrun")
+        text = (tmp_path / "gl-cd" / ".gitlab-ci.yml").read_text()
+        assert "- deploy" in text
+        assert "gcloud run deploy" in text
+
+    def test_gitlab_ci_no_deploy_stage_for_docker(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gl-nod", str(tmp_path / "gl-nod"),
+                      ci_provider="gitlab", deploy_target="docker")
+        text = (tmp_path / "gl-nod" / ".gitlab-ci.yml").read_text()
+        assert "- deploy" not in text
+
+    def test_azure_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "az-cd", str(tmp_path / "az-cd"),
+                      ci_provider="azure-devops", deploy_target="azure-container-apps")
+        text = (tmp_path / "az-cd" / "azure-pipelines.yml").read_text()
+        assert "az containerapp up" in text
+
+    def test_bitbucket_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bb-cd", str(tmp_path / "bb-cd"),
+                      ci_provider="bitbucket", deploy_target="netlify")
+        text = (tmp_path / "bb-cd" / "bitbucket-pipelines.yml").read_text()
+        assert "npx netlify deploy" in text
+
+    def test_circleci_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "cc-cd", str(tmp_path / "cc-cd"),
+                      ci_provider="circleci", deploy_target="fly")
+        text = (tmp_path / "cc-cd" / ".circleci" / "config.yml").read_text()
+        assert "flyctl deploy" in text
+        assert "requires:" in text
+
+    def test_jenkins_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "jk-cd", str(tmp_path / "jk-cd"),
+                      ci_provider="jenkins", deploy_target="fly")
+        text = (tmp_path / "jk-cd" / "Jenkinsfile").read_text()
+        assert "Deploy" in text
+        assert "flyctl deploy" in text
+        assert "branch 'main'" in text
+
+    def test_buildkite_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bk-cd", str(tmp_path / "bk-cd"),
+                      ci_provider="buildkite", deploy_target="vercel")
+        text = (tmp_path / "bk-cd" / ".buildkite" / "pipeline.yml").read_text()
+        assert "Deploy" in text
+        assert "npx vercel deploy" in text
+
+    def test_drone_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "dr-cd", str(tmp_path / "dr-cd"),
+                      ci_provider="drone", deploy_target="fly")
+        text = (tmp_path / "dr-cd" / ".drone.yml").read_text()
+        assert "deploy" in text
+        assert "flyctl deploy" in text
+
+    def test_travis_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "tr-cd", str(tmp_path / "tr-cd"),
+                      ci_provider="travis", deploy_target="fly")
+        text = (tmp_path / "tr-cd" / ".travis.yml").read_text()
+        assert "after_success" in text
+        assert "flyctl deploy" in text
+
+    def test_aws_codebuild_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "aws-cd", str(tmp_path / "aws-cd"),
+                      ci_provider="aws-codebuild", deploy_target="apprunner")
+        text = (tmp_path / "aws-cd" / "buildspec.yml").read_text()
+        assert "post_build" in text
+
+    def test_cloudbuild_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gcb-cd", str(tmp_path / "gcb-cd"),
+                      ci_provider="cloud-build", deploy_target="cloudrun")
+        text = (tmp_path / "gcb-cd" / "cloudbuild.yaml").read_text()
+        assert "gcloud run deploy" in text
+
+    def test_forgejo_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "fg-cd", str(tmp_path / "fg-cd"),
+                      ci_provider="forgejo", deploy_target="fly")
+        text = (tmp_path / "fg-cd" / ".forgejo" / "workflows" / "ci.yml").read_text()
+        assert "flyctl deploy" in text
+
+    def test_gitea_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gt-cd", str(tmp_path / "gt-cd"),
+                      ci_provider="gitea", deploy_target="fly")
+        text = (tmp_path / "gt-cd" / ".gitea" / "workflows" / "ci.yml").read_text()
+        assert "flyctl deploy" in text
+
+    def test_woodpecker_ci_cd_step(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "wp-cd", str(tmp_path / "wp-cd"),
+                      ci_provider="woodpecker", deploy_target="vercel")
+        text = (tmp_path / "wp-cd" / ".woodpecker.yml").read_text()
+        assert "npx vercel deploy" in text
+
+    def test_name_substitution_in_cd_command(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "my-app", str(tmp_path / "my-app"),
+                      ci_provider="github", deploy_target="cloudrun")
+        text = (tmp_path / "my-app" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "gcloud run deploy my-app" in text
+
+
+# ── Movement 3: detect_ci / regenerate_ci / cup ci ─────────────────
+
+class TestDetectCI:
+    """Tests for detect_ci()."""
+
+    def test_detect_github(self, tmp_path):
+        from codeupipe.deploy.init import detect_ci
+        (tmp_path / ".github" / "workflows").mkdir(parents=True)
+        (tmp_path / ".github" / "workflows" / "ci.yml").write_text("test")
+        found = detect_ci(str(tmp_path))
+        assert len(found) == 1
+        assert found[0]["provider"] == "github"
+
+    def test_detect_multiple(self, tmp_path):
+        from codeupipe.deploy.init import detect_ci
+        (tmp_path / ".github" / "workflows").mkdir(parents=True)
+        (tmp_path / ".github" / "workflows" / "ci.yml").write_text("test")
+        (tmp_path / ".gitlab-ci.yml").write_text("test")
+        found = detect_ci(str(tmp_path))
+        providers = {e["provider"] for e in found}
+        assert "github" in providers
+        assert "gitlab" in providers
+
+    def test_detect_empty(self, tmp_path):
+        from codeupipe.deploy.init import detect_ci
+        assert detect_ci(str(tmp_path)) == []
+
+    def test_detect_all_14_providers(self, tmp_path):
+        """Create a file for every known CI provider and verify detection."""
+        from codeupipe.deploy.init import detect_ci
+
+        configs = {
+            "github": (".github/workflows", "ci.yml"),
+            "gitlab": (".", ".gitlab-ci.yml"),
+            "azure-devops": (".", "azure-pipelines.yml"),
+            "bitbucket": (".", "bitbucket-pipelines.yml"),
+            "circleci": (".circleci", "config.yml"),
+            "jenkins": (".", "Jenkinsfile"),
+            "forgejo": (".forgejo/workflows", "ci.yml"),
+            "gitea": (".gitea/workflows", "ci.yml"),
+            "buildkite": (".buildkite", "pipeline.yml"),
+            "drone": (".", ".drone.yml"),
+            "woodpecker": (".", ".woodpecker.yml"),
+            "travis": (".", ".travis.yml"),
+            "aws-codebuild": (".", "buildspec.yml"),
+            "cloud-build": (".", "cloudbuild.yaml"),
+        }
+        for provider, (rel_dir, filename) in configs.items():
+            d = tmp_path / rel_dir
+            d.mkdir(parents=True, exist_ok=True)
+            (d / filename).write_text(f"# {provider}")
+
+        found = detect_ci(str(tmp_path))
+        assert len(found) == 14
+
+
+class TestRegenerateCI:
+    """Tests for regenerate_ci()."""
+
+    def test_regenerate_existing(self, tmp_path):
+        from codeupipe.deploy.init import init_project, regenerate_ci
+
+        # Create project with github CI
+        init_project("api", "regen", str(tmp_path / "regen"), ci_provider="github")
+        ci = tmp_path / "regen" / ".github" / "workflows" / "ci.yml"
+        assert ci.exists()
+        original = ci.read_text()
+
+        # Regenerate
+        result = regenerate_ci(str(tmp_path / "regen"))
+        assert result["provider"] == "github"
+        assert ci.exists()
+
+    def test_switch_provider(self, tmp_path):
+        from codeupipe.deploy.init import init_project, regenerate_ci
+
+        init_project("api", "switch", str(tmp_path / "switch"), ci_provider="github")
+        gh_ci = tmp_path / "switch" / ".github" / "workflows" / "ci.yml"
+        assert gh_ci.exists()
+
+        result = regenerate_ci(str(tmp_path / "switch"), ci_provider="gitlab")
+        assert result["provider"] == "gitlab"
+        # Old config removed
+        assert not gh_ci.exists()
+        assert "removed" in result
+        # New config created
+        gl_ci = tmp_path / "switch" / ".gitlab-ci.yml"
+        assert gl_ci.exists()
+
+    def test_regenerate_with_deploy_target(self, tmp_path):
+        from codeupipe.deploy.init import init_project, regenerate_ci
+
+        init_project("api", "regen-cd", str(tmp_path / "regen-cd"), ci_provider="github")
+        result = regenerate_ci(
+            str(tmp_path / "regen-cd"),
+            deploy_target="fly",
+        )
+        ci = tmp_path / "regen-cd" / ".github" / "workflows" / "ci.yml"
+        text = ci.read_text()
+        assert "flyctl deploy" in text
+
+    def test_regenerate_no_ci_raises(self, tmp_path):
+        from codeupipe.deploy.init import regenerate_ci, InitError
+        with pytest.raises(InitError, match="No CI config detected"):
+            regenerate_ci(str(tmp_path))
+
+    def test_regenerate_unknown_provider_raises(self, tmp_path):
+        from codeupipe.deploy.init import regenerate_ci, InitError
+        with pytest.raises(InitError, match="Unknown CI provider"):
+            regenerate_ci(str(tmp_path), ci_provider="nonexistent")
+
+    def test_regenerate_reads_cup_toml_name(self, tmp_path):
+        from codeupipe.deploy.init import init_project, regenerate_ci
+
+        init_project("api", "toml-name", str(tmp_path / "toml-name"), ci_provider="github")
+        # Read the CI config, project name should appear
+        result = regenerate_ci(str(tmp_path / "toml-name"), deploy_target="cloudrun")
+        text = (tmp_path / "toml-name" / ".github" / "workflows" / "ci.yml").read_text()
+        assert "toml-name" in text
+
+
+# ── Movement 4: Composite CI ───────────────────────────────────────
+
+class TestCompositeCI:
+    """Tests for comma-separated --ci support."""
+
+    def test_single_provider_still_works(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        result = init_project("api", "single", str(tmp_path / "single"), ci_provider="github")
+        ci = tmp_path / "single" / ".github" / "workflows" / "ci.yml"
+        assert ci.exists()
+
+    def test_composite_two_providers(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        result = init_project(
+            "api", "combo", str(tmp_path / "combo"),
+            ci_provider="github,gitlab",
+        )
+        gh = tmp_path / "combo" / ".github" / "workflows" / "ci.yml"
+        gl = tmp_path / "combo" / ".gitlab-ci.yml"
+        assert gh.exists()
+        assert gl.exists()
+
+    def test_composite_three_providers(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project(
+            "api", "tri", str(tmp_path / "tri"),
+            ci_provider="github,gitlab,jenkins",
+        )
+        assert (tmp_path / "tri" / ".github" / "workflows" / "ci.yml").exists()
+        assert (tmp_path / "tri" / ".gitlab-ci.yml").exists()
+        assert (tmp_path / "tri" / "Jenkinsfile").exists()
+
+    def test_composite_with_cd_steps(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project(
+            "api", "combo-cd", str(tmp_path / "combo-cd"),
+            ci_provider="github,gitlab",
+            deploy_target="fly",
+        )
+        gh_text = (tmp_path / "combo-cd" / ".github" / "workflows" / "ci.yml").read_text()
+        gl_text = (tmp_path / "combo-cd" / ".gitlab-ci.yml").read_text()
+        assert "flyctl deploy" in gh_text
+        assert "flyctl deploy" in gl_text
+
+    def test_composite_with_spaces(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project(
+            "api", "spaces", str(tmp_path / "spaces"),
+            ci_provider="github, gitlab",
+        )
+        assert (tmp_path / "spaces" / ".github" / "workflows" / "ci.yml").exists()
+        assert (tmp_path / "spaces" / ".gitlab-ci.yml").exists()
+
+    def test_composite_warnings_per_provider(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        result = init_project(
+            "api", "warn-combo", str(tmp_path / "warn-combo"),
+            ci_provider="github,gitlab",
+            deploy_target="render",
+        )
+        # Should get warnings for both providers about auto-deploy
+        assert len(result.get("warnings", [])) == 2
+
+    def test_init_result_has_warnings_key(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        result = init_project("api", "wkey", str(tmp_path / "wkey"))
+        assert "warnings" in result
+
+
+# ── Exports ─────────────────────────────────────────────────────────
+
+class TestMovementExports:
+    """Verify new functions are exported from the deploy package."""
+
+    def test_detect_ci_exported(self):
+        from codeupipe.deploy import detect_ci
+        assert callable(detect_ci)
+
+    def test_validate_ci_deploy_exported(self):
+        from codeupipe.deploy import validate_ci_deploy
+        assert callable(validate_ci_deploy)
+
+    def test_regenerate_ci_exported(self):
+        from codeupipe.deploy import regenerate_ci
+        assert callable(regenerate_ci)

@@ -1419,12 +1419,41 @@ def main(argv=None):
     init_parser.add_argument(
         "--ci",
         default="github",
-        choices=[
-            "github", "gitlab", "azure-devops", "bitbucket", "circleci",
-            "jenkins", "forgejo", "gitea", "buildkite", "drone",
-            "woodpecker", "travis", "aws-codebuild", "cloud-build",
-        ],
-        help="CI platform (default: github)",
+        help=(
+            "CI platform (default: github). Comma-separated for multiple: "
+            "github,gitlab. Options: github, gitlab, azure-devops, bitbucket, "
+            "circleci, jenkins, forgejo, gitea, buildkite, drone, woodpecker, "
+            "travis, aws-codebuild, cloud-build"
+        ),
+    )
+
+    # cup ci
+    ci_parser = sub.add_parser(
+        "ci",
+        help="Detect, regenerate, or switch CI platform",
+    )
+    ci_parser.add_argument(
+        "--detect",
+        action="store_true",
+        help="Show detected CI configs in the project",
+    )
+    ci_parser.add_argument(
+        "--regenerate",
+        action="store_true",
+        help="Regenerate the current CI config",
+    )
+    ci_parser.add_argument(
+        "--provider",
+        help="Switch to a different CI provider",
+    )
+    ci_parser.add_argument(
+        "--deploy",
+        default="docker",
+        help="Deploy target for CD steps (default: docker)",
+    )
+    ci_parser.add_argument(
+        "--frontend",
+        help="Frontend framework",
     )
 
     # cup connect
@@ -1925,6 +1954,53 @@ def main(argv=None):
             print(f"Created project '{args.name}' ({args.template}):")
             for f in result["files"]:
                 print(f"  {f}")
+            for w in result.get("warnings", []):
+                print(f"  Warning: {w}", file=sys.stderr)
+            return 0
+        except Exception as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
+    if args.command == "ci":
+        try:
+            from codeupipe.deploy.init import detect_ci, regenerate_ci
+
+            if getattr(args, "detect", False):
+                found = detect_ci(".")
+                if not found:
+                    print("No CI configs detected.")
+                else:
+                    print("Detected CI configs:")
+                    for entry in found:
+                        print(f"  {entry['provider']:20s} {entry['path']}")
+                return 0
+
+            provider = getattr(args, "provider", None)
+            regenerate = getattr(args, "regenerate", False)
+
+            if regenerate or provider:
+                result = regenerate_ci(
+                    ".",
+                    ci_provider=provider,
+                    deploy_target=getattr(args, "deploy", "docker"),
+                    frontend=getattr(args, "frontend", None),
+                )
+                action = "Switched to" if provider else "Regenerated"
+                print(f"{action} {result['provider']} CI config: {result['file']}")
+                for removed in result.get("removed", []):
+                    print(f"  Removed old config: {removed}")
+                for w in result.get("warnings", []):
+                    print(f"  Warning: {w}", file=sys.stderr)
+                return 0
+
+            # No flags — show current CI
+            found = detect_ci(".")
+            if not found:
+                print("No CI configs detected. Use --provider to add one.")
+            else:
+                print("Current CI configs:")
+                for entry in found:
+                    print(f"  {entry['provider']:20s} {entry['path']}")
             return 0
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)

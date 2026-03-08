@@ -9,7 +9,14 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-__all__ = ["init_project", "list_templates", "InitError", "CI_PROVIDERS"]
+__all__ = [
+    "init_project",
+    "list_templates",
+    "InitError",
+    "CI_PROVIDERS",
+    "detect_ci",
+    "validate_ci_deploy",
+]
 
 
 class InitError(Exception):
@@ -62,13 +69,14 @@ def init_project(
         name: Project name.
         output_dir: Directory to create project in (default: ./{name}).
         deploy_target: Deployment target (default: 'docker').
-        ci_provider: CI platform ('github', 'gitlab', 'azure-devops',
-            'bitbucket', 'circleci').  Default: 'github'.
+        ci_provider: CI platform(s).  Comma-separated for multiple
+            (e.g. ``'github,gitlab'``).  Default: ``'github'``.
         frontend: Frontend framework ('react', 'next', 'vite', None).
         options: Additional options (auth, db, payments, ai providers).
 
     Returns:
-        Dict with 'project_dir' and 'files' (list of created files).
+        Dict with 'project_dir', 'files', 'warnings' (list of created files
+        and any cross-axis validation warnings).
 
     Raises:
         InitError: If template is invalid or directory already exists.
@@ -77,11 +85,17 @@ def init_project(
         available = ", ".join(_TEMPLATES.keys())
         raise InitError(f"Unknown template '{template}'. Available: {available}")
 
-    if ci_provider not in _CI_PROVIDERS:
-        available = ", ".join(_CI_PROVIDERS.keys())
-        raise InitError(
-            f"Unknown CI provider '{ci_provider}'. Available: {available}"
-        )
+    # Parse comma-separated CI providers
+    ci_providers = [p.strip() for p in ci_provider.split(",") if p.strip()]
+    for p in ci_providers:
+        if p not in _CI_PROVIDERS:
+            available = ", ".join(_CI_PROVIDERS.keys())
+            raise InitError(
+                f"Unknown CI provider '{p}'. Available: {available}"
+            )
+
+    # Cross-axis validation
+    warnings = validate_ci_deploy(ci_providers, deploy_target)
 
     opts = options or {}
     project_dir = Path(output_dir) if output_dir else Path(name)
@@ -120,11 +134,16 @@ def init_project(
     _write(tests_dir / "__init__.py", "", created_files)
     _write(tests_dir / f"test_{name.replace('-', '_')}.py", _render_test_scaffold(name), created_files)
 
-    # 6. CI config (provider-specific path and content)
-    renderer, ci_rel_dir, ci_filename = _CI_PROVIDERS[ci_provider]
-    ci_dir = project_dir / ci_rel_dir
-    ci_dir.mkdir(parents=True, exist_ok=True)
-    _write(ci_dir / ci_filename, renderer(name, frontend), created_files)
+    # 6. CI config(s) — one per provider (composite when comma-separated)
+    for cp in ci_providers:
+        renderer, ci_rel_dir, ci_filename = _CI_PROVIDERS[cp]
+        ci_dir = project_dir / ci_rel_dir
+        ci_dir.mkdir(parents=True, exist_ok=True)
+        _write(
+            ci_dir / ci_filename,
+            renderer(name, frontend, deploy_target),
+            created_files,
+        )
 
     # 7. README.md
     _write(project_dir / "README.md", _render_readme(name, template, frontend, deploy_target), created_files)
@@ -138,6 +157,7 @@ def init_project(
         "files": created_files,
         "template": template,
         "frontend": frontend,
+        "warnings": warnings,
     }
 
 
@@ -262,6 +282,277 @@ def _render_test_scaffold(name: str) -> str:
     )
 
 
+# ── Cross-axis Validation ────────────────────────────────────────────
+
+# Deploy targets that auto-deploy on git push (no explicit CD step needed)
+_AUTO_DEPLOY_TARGETS = {"render", "railway", "koyeb", "hf-spaces"}
+
+# Deploy targets with known CLI deploy commands
+_CD_COMMANDS: Dict[str, str] = {
+    "vercel": "npx vercel deploy --prod",
+    "netlify": "npx netlify deploy --prod --dir=dist",
+    "fly": "flyctl deploy",
+    "cloudrun": "gcloud run deploy {name} --source .",
+    "azure-container-apps": "az containerapp up --name {name} --source .",
+    "apprunner": "aws apprunner create-service --source-configuration file://apprunner.json",
+    "oracle": "oci ce cluster create-kubeconfig && kubectl apply -f k8s/",
+}
+
+
+def validate_ci_deploy(
+    ci_providers: List[str], deploy_target: str
+) -> List[str]:
+    """Check CI×Deploy compatibility and return advisory warnings."""
+    warnings: List[str] = []
+
+    if deploy_target == "docker":
+        return warnings  # Docker is universally compatible
+
+    if deploy_target in _AUTO_DEPLOY_TARGETS:
+        for cp in ci_providers:
+            warnings.append(
+                f"'{deploy_target}' auto-deploys on git push — "
+                f"no CD step added to {cp} config."
+            )
+        return warnings
+
+    # Check if CD commands exist for this target
+    if deploy_target in _CD_COMMANDS:
+        return warnings  # Will be wired into the CI config
+
+    return warnings
+
+
+def detect_ci(project_dir: str) -> List[Dict[str, str]]:
+    """Detect which CI platform configs exist in a project directory.
+
+    Returns list of dicts with 'provider', 'file', and 'path' keys.
+    """
+    root = Path(project_dir)
+    found: List[Dict[str, str]] = []
+
+    # Check each known CI config location
+    _DETECT_MAP = {
+        "github": (".github/workflows", "ci.yml"),
+        "gitlab": (".", ".gitlab-ci.yml"),
+        "azure-devops": (".", "azure-pipelines.yml"),
+        "bitbucket": (".", "bitbucket-pipelines.yml"),
+        "circleci": (".circleci", "config.yml"),
+        "jenkins": (".", "Jenkinsfile"),
+        "forgejo": (".forgejo/workflows", "ci.yml"),
+        "gitea": (".gitea/workflows", "ci.yml"),
+        "buildkite": (".buildkite", "pipeline.yml"),
+        "drone": (".", ".drone.yml"),
+        "woodpecker": (".", ".woodpecker.yml"),
+        "travis": (".", ".travis.yml"),
+        "aws-codebuild": (".", "buildspec.yml"),
+        "cloud-build": (".", "cloudbuild.yaml"),
+    }
+
+    for provider, (rel_dir, filename) in _DETECT_MAP.items():
+        ci_file = root / rel_dir / filename
+        if ci_file.exists():
+            found.append({
+                "provider": provider,
+                "file": filename,
+                "path": str(ci_file),
+            })
+
+    return found
+
+
+def regenerate_ci(
+    project_dir: str,
+    *,
+    ci_provider: Optional[str] = None,
+    deploy_target: str = "docker",
+    frontend: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Regenerate CI config for an existing project.
+
+    If ci_provider is None, detects the current provider and regenerates.
+    If ci_provider is given, switches to that provider (removes old config).
+
+    Returns dict with 'provider', 'file', 'warnings', and optionally
+    'removed' (old config files removed when switching).
+    """
+    root = Path(project_dir)
+    name = root.name
+
+    # Try to read name from cup.toml if it exists
+    manifest_path = root / "cup.toml"
+    if manifest_path.exists():
+        text = manifest_path.read_text()
+        for line in text.splitlines():
+            if line.strip().startswith("name"):
+                parts = line.split("=", 1)
+                if len(parts) == 2:
+                    name = parts[1].strip().strip('"').strip("'")
+                    break
+
+    existing = detect_ci(project_dir)
+    removed: List[str] = []
+
+    if ci_provider is None:
+        # Regenerate existing
+        if not existing:
+            raise InitError("No CI config detected. Use --provider to specify one.")
+        ci_provider = existing[0]["provider"]
+    else:
+        # Validate
+        if ci_provider not in _CI_PROVIDERS:
+            available = ", ".join(_CI_PROVIDERS.keys())
+            raise InitError(
+                f"Unknown CI provider '{ci_provider}'. Available: {available}"
+            )
+        # Remove old configs when switching
+        for entry in existing:
+            old_path = Path(entry["path"])
+            if old_path.exists():
+                old_path.unlink()
+                removed.append(entry["path"])
+
+    renderer, ci_rel_dir, ci_filename = _CI_PROVIDERS[ci_provider]
+    ci_dir = root / ci_rel_dir
+    ci_dir.mkdir(parents=True, exist_ok=True)
+    ci_path = ci_dir / ci_filename
+    ci_path.write_text(renderer(name, frontend, deploy_target))
+
+    warnings = validate_ci_deploy([ci_provider], deploy_target)
+
+    result: Dict[str, Any] = {
+        "provider": ci_provider,
+        "file": str(ci_path),
+        "warnings": warnings,
+    }
+    if removed:
+        result["removed"] = removed
+    return result
+
+
+# ── CD Step Rendering ────────────────────────────────────────────────
+
+
+def _github_cd_steps(name: str, deploy_target: str) -> List[str]:
+    """Return GitHub Actions YAML lines for a deploy job."""
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    lines = [
+        "",
+        "  deploy:",
+        "    needs: test",
+        "    runs-on: ubuntu-latest",
+        "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'",
+        "    steps:",
+        "      - uses: actions/checkout@v4",
+        f"      - run: {cmd}",
+    ]
+    return lines
+
+
+def _gitlab_cd_steps(name: str, deploy_target: str) -> List[str]:
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [
+        "",
+        "deploy:",
+        "  stage: deploy",
+        "  image: python:3.12",
+        "  script:",
+        f"    - {cmd}",
+        "  only:",
+        "    - main",
+    ]
+
+
+def _azure_cd_steps(name: str, deploy_target: str) -> List[str]:
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [
+        "",
+        "  - script: " + cmd,
+        "    displayName: Deploy to " + deploy_target,
+        "    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))",
+    ]
+
+
+def _bitbucket_cd_steps(name: str, deploy_target: str) -> List[str]:
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [
+        "",
+        "  branches:",
+        "    main:",
+        "      - step:",
+        "          name: Deploy",
+        "          deployment: production",
+        "          script:",
+        f"            - {cmd}",
+    ]
+
+
+def _circleci_cd_steps(name: str, deploy_target: str) -> List[str]:
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [
+        "",
+        "  deploy:",
+        "    docker:",
+        "      - image: cimg/python:3.12",
+        "    steps:",
+        "      - checkout",
+        "      - run:",
+        "          name: Deploy to " + deploy_target,
+        f"          command: {cmd}",
+    ]
+
+
+def _jenkins_cd_steps(name: str, deploy_target: str) -> List[str]:
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [
+        "",
+        "        stage('Deploy') {",
+        "            when { branch 'main' }",
+        "            steps {",
+        f"                sh '{cmd}'",
+        "            }",
+        "        }",
+    ]
+
+
+def _generic_cd_steps(name: str, deploy_target: str) -> List[str]:
+    """Fallback CD steps — returns the raw deploy command as a comment."""
+    cmd = _CD_COMMANDS.get(deploy_target, "")
+    if not cmd:
+        return []
+    cmd = cmd.replace("{name}", name)
+    return [f"# Deploy: {cmd}"]
+
+
+# Map CI providers to their CD step generators
+_CD_RENDERERS = {
+    "github": _github_cd_steps,
+    "gitlab": _gitlab_cd_steps,
+    "azure-devops": _azure_cd_steps,
+    "bitbucket": _bitbucket_cd_steps,
+    "circleci": _circleci_cd_steps,
+    "jenkins": _jenkins_cd_steps,
+}
+
+
 # ── CI Provider Registry ────────────────────────────────────────────
 
 # Maps ci_provider key → (renderer_func, relative_dir, filename)
@@ -270,7 +561,7 @@ def _render_test_scaffold(name: str) -> str:
 _CI_PROVIDERS: Dict[str, tuple] = {}  # filled at module bottom
 
 
-def _render_github_ci(name: str, frontend: Optional[str] = None) -> str:
+def _render_github_ci(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"name: CI — {name}",
         "",
@@ -306,6 +597,7 @@ def _render_github_ci(name: str, frontend: Optional[str] = None) -> str:
         "      - run: pip install -e '.[dev]'",
         "      - run: python -m pytest -q",
     ])
+    lines.extend(_github_cd_steps(name, deploy_target))
     return "\n".join(lines) + "\n"
 
 
@@ -313,7 +605,7 @@ def _render_github_ci(name: str, frontend: Optional[str] = None) -> str:
 _render_ci_workflow = _render_github_ci
 
 
-def _render_gitlab_ci(name: str, frontend: Optional[str] = None) -> str:
+def _render_gitlab_ci(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -344,10 +636,16 @@ def _render_gitlab_ci(name: str, frontend: Optional[str] = None) -> str:
         "    - pip install -e '.[dev]'",
         "    - python -m pytest -q",
     ])
+    cd = _gitlab_cd_steps(name, deploy_target)
+    if cd:
+        # Add deploy stage to stages list
+        lines[3] = "  - test"
+        lines.insert(4, "  - deploy")
+        lines.extend(cd)
     return "\n".join(lines) + "\n"
 
 
-def _render_azure_pipelines(name: str, frontend: Optional[str] = None) -> str:
+def _render_azure_pipelines(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -394,10 +692,11 @@ def _render_azure_pipelines(name: str, frontend: Optional[str] = None) -> str:
         "  - script: python -m pytest -q",
         "    displayName: Run tests",
     ])
+    lines.extend(_azure_cd_steps(name, deploy_target))
     return "\n".join(lines) + "\n"
 
 
-def _render_bitbucket_pipelines(name: str, frontend: Optional[str] = None) -> str:
+def _render_bitbucket_pipelines(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -428,10 +727,11 @@ def _render_bitbucket_pipelines(name: str, frontend: Optional[str] = None) -> st
                 "              - python -m pytest -q",
             ])
 
+    lines.extend(_bitbucket_cd_steps(name, deploy_target))
     return "\n".join(lines) + "\n"
 
 
-def _render_circleci_config(name: str, frontend: Optional[str] = None) -> str:
+def _render_circleci_config(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -479,10 +779,22 @@ def _render_circleci_config(name: str, frontend: Optional[str] = None) -> str:
         '                - "3.12"',
         '                - "3.13"',
     ])
+    cd = _circleci_cd_steps(name, deploy_target)
+    if cd:
+        lines.extend(cd)
+        # Add deploy job to workflow
+        lines.extend([
+            "      - deploy:",
+            "          requires:",
+            "            - test",
+            "          filters:",
+            "            branches:",
+            "              only: main",
+        ])
     return "\n".join(lines) + "\n"
 
 
-def _render_jenkins(name: str, frontend: Optional[str] = None) -> str:
+def _render_jenkins(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"// CI — {name}",
         "pipeline {",
@@ -533,10 +845,15 @@ def _render_jenkins(name: str, frontend: Optional[str] = None) -> str:
         "    }",
         "}",
     ])
+    # Insert deploy stage before closing braces
+    cd = _jenkins_cd_steps(name, deploy_target)
+    if cd:
+        # Insert before the last two lines ("    }" and "}")
+        lines[-2:-2] = cd
     return "\n".join(lines) + "\n"
 
 
-def _render_forgejo_ci(name: str, frontend: Optional[str] = None) -> str:
+def _render_forgejo_ci(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"name: CI — {name}",
         "",
@@ -572,15 +889,16 @@ def _render_forgejo_ci(name: str, frontend: Optional[str] = None) -> str:
         "      - run: pip install -e '.[dev]'",
         "      - run: python -m pytest -q",
     ])
+    lines.extend(_github_cd_steps(name, deploy_target))
     return "\n".join(lines) + "\n"
 
 
-def _render_gitea_ci(name: str, frontend: Optional[str] = None) -> str:
+def _render_gitea_ci(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     # Gitea Actions uses the same syntax as Forgejo/GitHub Actions
-    return _render_forgejo_ci(name, frontend)
+    return _render_forgejo_ci(name, frontend, deploy_target)
 
 
-def _render_buildkite(name: str, frontend: Optional[str] = None) -> str:
+def _render_buildkite(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -610,10 +928,20 @@ def _render_buildkite(name: str, frontend: Optional[str] = None) -> str:
             "",
         ])
 
+    cd_cmd = _CD_COMMANDS.get(deploy_target, "")
+    if cd_cmd:
+        cd_cmd = cd_cmd.replace("{name}", name)
+        lines.extend([
+            "  - label: \":rocket: Deploy\"",
+            "    command:",
+            f"      - {cd_cmd}",
+            "    branches: main",
+            "",
+        ])
     return "\n".join(lines) + "\n"
 
 
-def _render_drone(name: str, frontend: Optional[str] = None) -> str:
+def _render_drone(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -647,15 +975,27 @@ def _render_drone(name: str, frontend: Optional[str] = None) -> str:
             "",
         ])
 
+    cd_cmd = _CD_COMMANDS.get(deploy_target, "")
+    if cd_cmd:
+        cd_cmd = cd_cmd.replace("{name}", name)
+        lines.extend([
+            f"  - name: deploy",
+            "    image: python:3.12",
+            "    commands:",
+            f"      - {cd_cmd}",
+            "    when:",
+            "      branch: main",
+            "",
+        ])
     return "\n".join(lines) + "\n"
 
 
-def _render_woodpecker(name: str, frontend: Optional[str] = None) -> str:
+def _render_woodpecker(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     # Woodpecker uses the same YAML syntax as Drone
-    return _render_drone(name, frontend)
+    return _render_drone(name, frontend, deploy_target)
 
 
-def _render_travis(name: str, frontend: Optional[str] = None) -> str:
+def _render_travis(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -684,10 +1024,18 @@ def _render_travis(name: str, frontend: Optional[str] = None) -> str:
         "script:",
         "  - python -m pytest -q",
     ])
+    cd_cmd = _CD_COMMANDS.get(deploy_target, "")
+    if cd_cmd:
+        cd_cmd = cd_cmd.replace("{name}", name)
+        lines.extend([
+            "",
+            "after_success:",
+            f"  - {cd_cmd}",
+        ])
     return "\n".join(lines) + "\n"
 
 
-def _render_aws_codebuild(name: str, frontend: Optional[str] = None) -> str:
+def _render_aws_codebuild(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -717,10 +1065,18 @@ def _render_aws_codebuild(name: str, frontend: Optional[str] = None) -> str:
         "    commands:",
         "      - python -m pytest -q",
     ])
+    cd_cmd = _CD_COMMANDS.get(deploy_target, "")
+    if cd_cmd:
+        cd_cmd = cd_cmd.replace("{name}", name)
+        lines.extend([
+            "  post_build:",
+            "    commands:",
+            f"      - {cd_cmd}",
+        ])
     return "\n".join(lines) + "\n"
 
 
-def _render_cloudbuild(name: str, frontend: Optional[str] = None) -> str:
+def _render_cloudbuild(name: str, frontend: Optional[str] = None, deploy_target: str = "docker") -> str:
     lines = [
         f"# CI — {name}",
         "",
@@ -747,6 +1103,17 @@ def _render_cloudbuild(name: str, frontend: Optional[str] = None) -> str:
             "",
         ])
 
+    cd_cmd = _CD_COMMANDS.get(deploy_target, "")
+    if cd_cmd:
+        cd_cmd = cd_cmd.replace("{name}", name)
+        lines.extend([
+            f"  - name: python:3.12",
+            "    entrypoint: bash",
+            "    args:",
+            "      - -c",
+            f"      - {cd_cmd}",
+            "",
+        ])
     return "\n".join(lines) + "\n"
 
 
