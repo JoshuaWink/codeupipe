@@ -184,7 +184,7 @@ class NormalizeFilter:
 
 ## Pipeline
 
-<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=8111ae2 -->
+<!-- cup:ref file=codeupipe/core/pipeline.py symbols=Pipeline hash=e846926 -->
 
 **The orchestrator — sequences filters, taps, and valves.**
 
@@ -776,7 +776,7 @@ asyncio.run(main())
 
 ## Quick Reference
 
-<!-- cup:ref file=codeupipe/__init__.py hash=da3d295 -->
+<!-- cup:ref file=codeupipe/__init__.py hash=3053319 -->
 ```python
 from codeupipe import (
     Payload,           # immutable data container

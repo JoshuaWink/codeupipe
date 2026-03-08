@@ -144,7 +144,7 @@ Everything below is **unscheduled**. These are the natural next moves given what
 
 ### Harden & Ship (v1.0 candidate)
 
-The framework has 9 rings, 1357 tests, and a connector ecosystem. A v1.0 signals stability.
+The framework has 9 rings, 1676 tests, and a connector ecosystem. A v1.0 signals stability.
 
 | Work | What It Means |
 |---|---|

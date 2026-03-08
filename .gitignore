@@ -31,3 +31,8 @@ htmlcov/
 # Build
 *.log
 /site/
+
+# Prototypes — customer projects never enter CUP git history
+prototypes/*/
+!prototypes/_template/
+!prototypes/README.md

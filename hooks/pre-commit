@@ -13,8 +13,14 @@ CUP="python3 -m codeupipe.cli"
 echo "⏳ pre-commit: running cup doc-check ..."
 if ! $CUP doc-check . >/dev/null 2>&1; then
     echo "❌ cup doc-check failed — stale docs detected."
-    echo "   Run: cup doc-check .    to see details."
-    echo "   Fix hashes, then retry your commit."
+    echo ""
+    echo "   To fix non-interactively (AI-agent / CI friendly):"
+    echo "     cup doc-check . --auto-fix && git add -u"
+    echo ""
+    echo "   To review each change interactively:"
+    echo "     cup doc-check . --fix"
+    echo ""
+    echo "   Then retry your commit."
     exit 1
 fi
 

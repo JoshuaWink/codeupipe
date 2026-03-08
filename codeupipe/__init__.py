@@ -50,7 +50,7 @@ from importlib.metadata import version as _pkg_version, PackageNotFoundError
 try:
     __version__ = _pkg_version("codeupipe")
 except PackageNotFoundError:
-    __version__ = "0.8.0"  # fallback for editable / non-installed usage
+    __version__ = "0.10.0"  # fallback for editable / non-installed usage
 __all__ = [
     # Core
     "Payload", "MutablePayload",

@@ -120,7 +120,7 @@ def _check_tests(root: Path) -> Dict[str, Any]:
 def _check_lint(root: Path) -> Dict[str, Any]:
     """Run cup lint on the project."""
     try:
-        from codeupipe.cli import lint
+        from codeupipe.cli.commands.analysis_cmds import lint
         issues = lint(str(root))
         if not issues:
             return {"ok": True, "message": "All lint checks passed"}
@@ -130,7 +130,7 @@ def _check_lint(root: Path) -> Dict[str, Any]:
 
 
 def _check_connectors(root: Path) -> Dict[str, Any]:
-    """Check connector health if cup.toml has connectors section."""
+    """Check connector health by delegating to connect.check_health()."""
     manifest_path = root / "cup.toml"
     if not manifest_path.exists():
         return {"ok": True, "message": "No manifest (skipped)"}
@@ -138,10 +138,34 @@ def _check_connectors(root: Path) -> Dict[str, Any]:
     try:
         from codeupipe.deploy.manifest import load_manifest
         data = load_manifest(str(manifest_path))
-        connectors = data.get("connectors", {})
-        if not connectors:
+        connectors_cfg = data.get("connectors", {})
+        if not connectors_cfg:
             return {"ok": True, "message": "No connectors configured"}
-        return {"ok": True, "message": f"{len(connectors)} connector(s) configured"}
+
+        # Delegate to actual health checks
+        from codeupipe.registry import Registry
+        from codeupipe.connect import (
+            discover_connectors, load_connector_configs, check_health,
+        )
+        registry = Registry()
+        configs = load_connector_configs(data)
+        discover_connectors(configs, registry=registry)
+        health = check_health(registry)
+
+        healthy = [n for n, ok in health.items() if ok]
+        unhealthy = [n for n, ok in health.items() if not ok]
+        total = len(health)
+
+        if not health:
+            return {"ok": True, "message": f"{len(connectors_cfg)} connector(s) configured (no health checks)"}
+        if unhealthy:
+            return {
+                "ok": False,
+                "message": f"{len(unhealthy)}/{total} unhealthy: {', '.join(unhealthy)}",
+                "healthy": healthy,
+                "unhealthy": unhealthy,
+            }
+        return {"ok": True, "message": f"{total} connector(s) healthy"}
     except Exception as e:
         return {"ok": False, "message": f"Connector check failed: {e}"}
 
@@ -149,7 +173,7 @@ def _check_connectors(root: Path) -> Dict[str, Any]:
 def _check_docs(root: Path) -> Dict[str, Any]:
     """Check cup:ref documentation freshness."""
     try:
-        from codeupipe.cli import doc_check
+        from codeupipe.cli.commands.analysis_cmds import doc_check
         report = doc_check(str(root))
         drifted = report.get("drifted", 0)
         total = report.get("total_refs", 0)

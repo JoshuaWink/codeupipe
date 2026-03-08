@@ -105,7 +105,7 @@ class NormalizeEvents:
 
 **Time**: This is developer time — varies by complexity. Each filter is 10–30 lines.
 
-**Status**: **WORKS** — filter/tap/valve/hook contracts all exist. `cup new filter normalize_events` scaffolds the file + test in 1 second. Pipeline composition, streaming, retry, and lifecycle hooks are all Ring 1–6 features, battle-tested with 1356 tests.
+**Status**: **WORKS** — filter/tap/valve/hook contracts all exist. `cup new filter normalize_events` scaffolds the file + test in 1 second. Pipeline composition, streaming, retry, and lifecycle hooks are all Ring 1–6 features, battle-tested with 1676 tests.
 
 ---
 

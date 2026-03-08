@@ -43,6 +43,9 @@ class AssembleDocReport:
                 "file": d["file"],
                 "doc_path": d["doc_path"],
                 "line": d["line"],
+                "content": d.get("content", ""),
+                "stored_hash": d["stored_hash"],
+                "current_hash": d["current_hash"],
                 "message": (
                     f"Hash drift: stored={d['stored_hash']}, "
                     f"current={d['current_hash']}"
@@ -55,6 +58,7 @@ class AssembleDocReport:
                 "file": s["file"],
                 "doc_path": s["doc_path"],
                 "line": s["line"],
+                "content": s.get("content", ""),
                 "message": f"Symbol '{s['symbol']}' not found in {s['file']}",
             })
 
@@ -65,6 +69,7 @@ class AssembleDocReport:
                     "file": r["file"],
                     "doc_path": r["doc_path"],
                     "line": r["line"],
+                    "content": r.get("content", ""),
                     "message": f"Referenced file '{r['file']}' does not exist",
                 })
 

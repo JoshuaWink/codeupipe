@@ -7,15 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from codeupipe.cli import (
+from codeupipe.cli import main
+from codeupipe.cli._scaffold import (
     COMPONENT_TYPES,
-    _extract_exports,
     _to_pascal,
     _to_snake,
-    bundle,
-    main,
     scaffold,
 )
+from codeupipe.cli._bundle import _extract_exports, bundle
 
 
 # ── Name conversion ─────────────────────────────────────────────────
@@ -457,7 +456,7 @@ class TestCLI:
 
 # ── Composed Pipelines (--steps) ─────────────────────────────────────
 
-from codeupipe.cli import _parse_steps, _build_composed_pipeline, _build_composed_test
+from codeupipe.cli._scaffold import _parse_steps, _build_composed_pipeline, _build_composed_test
 
 
 class TestParseSteps:

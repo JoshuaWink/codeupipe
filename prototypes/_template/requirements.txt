@@ -1,0 +1,2 @@
+# Pin to the codeupipe version you shipped with
+codeupipe>=0.8.0

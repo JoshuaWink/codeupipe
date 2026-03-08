@@ -5,7 +5,8 @@ import os
 
 import pytest
 
-from codeupipe.cli import doc_check, main
+from codeupipe.cli import main
+from codeupipe.cli.commands.analysis_cmds import doc_check
 
 
 class TestDocCheckWrapper:

@@ -67,7 +67,7 @@ class TestCupInstallable:
             timeout=10,
         )
         assert result.returncode == 0
-        assert result.stdout.strip() == "0.1.0"
+        assert result.stdout.strip() == "0.10.0"
 
     def test_all_core_types_importable(self):
         result = subprocess.run(

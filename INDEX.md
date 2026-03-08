@@ -18,7 +18,7 @@ Quick-reference map of the project. Every path listed here is verified by `cup d
 
 ## Package Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=e123aee -->
+<!-- cup:ref file=codeupipe/__init__.py hash=3053319 -->
 ```
 codeupipe/
 ├── __init__.py              # Public API re-exports
@@ -85,7 +85,22 @@ codeupipe/
 │   └── (18 filter files)    # ScanDirectory, CheckNaming, etc.
 │
 ├── testing.py               # Test helpers — run_filter, assert_payload, etc.
-└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check/run/connect/describe/distribute/test/doctor/runs/upgrade/publish/graph/version
+└── cli/                     # CLI package — registry-routed command dispatch
+    ├── __init__.py          # Thin main() + backward-compat re-exports
+    ├── __main__.py          # python -m codeupipe.cli entry
+    ├── _registry.py         # CommandRegistry — routes command name → handler
+    ├── _templates.py        # 9 component template strings
+    ├── _scaffold.py         # scaffold engine, name utils, composed builder
+    ├── _bundle.py           # bundle engine
+    └── commands/            # One module per command group
+        ├── scaffold_cmds.py # new, list
+        ├── analysis_cmds.py # lint, coverage, report, doc-check
+        ├── run_cmds.py      # run, describe, graph, runs
+        ├── deploy_cmds.py   # deploy, recipe, init, ci
+        ├── connect_cmds.py  # connect, marketplace
+        ├── project_cmds.py  # test, doctor, upgrade, publish, version, bundle
+        ├── distribute_cmds.py # distribute checkpoint/remote/worker
+        └── auth_cmds.py     # auth login/status/revoke/list
 ```
 <!-- /cup:ref -->
 
@@ -315,7 +330,22 @@ codeupipe/
 
 ## CLI
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=45440df -->
+<!-- cup:ref file=codeupipe/cli/__init__.py symbols=main hash=4691a2f -->
+<!-- cup:ref file=codeupipe/cli/__main__.py hash=eec6b5b -->
+<!-- cup:ref file=codeupipe/cli/_registry.py symbols=CommandRegistry hash=8e82ece -->
+<!-- cup:ref file=codeupipe/cli/_templates.py hash=c43b99a -->
+<!-- cup:ref file=codeupipe/cli/_scaffold.py symbols=scaffold,COMPONENT_TYPES hash=1f62e60 -->
+<!-- cup:ref file=codeupipe/cli/_bundle.py symbols=bundle hash=9a1b776 -->
+<!-- cup:ref file=codeupipe/cli/commands/__init__.py symbols=setup_all hash=1f2d6ed -->
+<!-- cup:ref file=codeupipe/cli/commands/scaffold_cmds.py hash=f410919 -->
+<!-- cup:ref file=codeupipe/cli/commands/analysis_cmds.py symbols=lint,coverage,report,doc_check hash=9d54f93 -->
+<!-- cup:ref file=codeupipe/cli/commands/run_cmds.py hash=1dbf404 -->
+<!-- cup:ref file=codeupipe/cli/commands/deploy_cmds.py hash=de213f2 -->
+<!-- cup:ref file=codeupipe/cli/commands/connect_cmds.py hash=973b453 -->
+<!-- cup:ref file=codeupipe/cli/commands/project_cmds.py hash=6bad64b -->
+<!-- cup:ref file=codeupipe/cli/commands/distribute_cmds.py hash=8cb53eb -->
+<!-- cup:ref file=codeupipe/cli/commands/auth_cmds.py hash=a0df015 -->
+<!-- cup:ref file=codeupipe/cli/commands/vault_cmds.py hash=d2fb81a -->
 | Command | Purpose |
 |---------|---------||
 | `cup new <type> <name> [path]` | Scaffold component + test |
@@ -340,7 +370,29 @@ codeupipe/
 | `cup auth status <provider>` | Show credential status |
 | `cup auth revoke <provider>` | Remove stored credentials |
 | `cup auth list` | List all stored providers |
+| `cup vault issue <provider>` | Issue a proxy token for a provider |
+| `cup vault resolve <token>` | Verify proxy token validity |
+| `cup vault revoke <token>` | Revoke a single proxy token |
+| `cup vault revoke-all` | Revoke all active proxy tokens |
+| `cup vault list` | List active proxy tokens |
+| `cup vault status <token>` | Detailed proxy token inspection |
 | `--json` (global) | Machine-readable JSON output |
+| `--auto-fix` (doc-check) | Non-interactive hash fix (AI/CI friendly) |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
 <!-- /cup:ref -->
 
 ---
@@ -362,7 +414,7 @@ codeupipe/
 
 ## Doctor
 
-<!-- cup:ref file=codeupipe/doctor.py symbols=diagnose hash=f53609e -->
+<!-- cup:ref file=codeupipe/doctor.py symbols=diagnose hash=36b8d51 -->
 | Export | Role |
 |--------|------|
 | `diagnose` | Run 6 project health checks (manifest, CI, tests, lint, connectors, docs) |
@@ -404,11 +456,15 @@ codeupipe/
 
 ## Auth (OAuth2 Integration)
 
-<!-- cup:ref file=codeupipe/auth/__init__.py hash=9c1e619 -->
+<!-- cup:ref file=codeupipe/auth/__init__.py hash=85c76a2 -->
 <!-- cup:ref file=codeupipe/auth/credential.py symbols=Credential,CredentialStore hash=c430594 -->
 <!-- cup:ref file=codeupipe/auth/provider.py symbols=AuthProvider,GoogleOAuth,GitHubOAuth hash=88a42c5 -->
 <!-- cup:ref file=codeupipe/auth/hook.py symbols=AuthHook hash=f2144d0 -->
 <!-- cup:ref file=codeupipe/auth/_server.py symbols=run_oauth_flow hash=ae07f5c -->
+<!-- cup:ref file=codeupipe/auth/proxy_token.py symbols=ProxyToken hash=686c997 -->
+<!-- cup:ref file=codeupipe/auth/token_ledger.py symbols=LedgerEvent,TokenLedger hash=f6cd6dd -->
+<!-- cup:ref file=codeupipe/auth/token_vault.py symbols=TokenVault hash=dfd347f -->
+<!-- cup:ref file=codeupipe/auth/vault_hook.py symbols=VaultHook hash=899f08a -->
 | Export | Role |
 |--------|------|
 | `Credential` | Token container with expiry tracking and serialization |
@@ -418,6 +474,14 @@ codeupipe/
 | `GitHubOAuth` | GitHub OAuth2 provider |
 | `AuthHook` | Pipeline hook that injects credentials before execution |
 | `run_oauth_flow` | Browser-based OAuth2 callback server |
+| `ProxyToken` | Opaque `cup_tok_*` reference token with TTL, scopes, usage limits |
+| `TokenLedger` | Audit trail for proxy token lifecycle events |
+| `TokenVault` | Central authority — issues, resolves, revokes proxy tokens |
+| `VaultHook` | Pipeline hook — injects proxy tokens instead of real credentials |
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
 <!-- /cup:ref -->
 <!-- /cup:ref -->
 <!-- /cup:ref -->
@@ -441,7 +505,7 @@ codeupipe/
 
 ## Tests
 
-1729 tests across 60+ files. Full suite: `pytest`
+1831 tests across 60+ files. Full suite: `pytest`
 
 ---
 

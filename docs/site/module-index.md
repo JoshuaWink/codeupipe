@@ -17,7 +17,7 @@ Quick-reference map of the project. Every path listed here is verified by `cup d
 
 ## Package Structure
 
-<!-- cup:ref file=codeupipe/__init__.py hash=e123aee -->
+<!-- cup:ref file=codeupipe/__init__.py hash=3053319 -->
 ```
 codeupipe/
 ├── __init__.py              # Public API re-exports
@@ -84,7 +84,22 @@ codeupipe/
 │   └── (18 filter files)    # ScanDirectory, CheckNaming, etc.
 │
 ├── testing.py               # Test helpers — run_filter, assert_payload, etc.
-└── cli.py                   # cup new/list/bundle/lint/coverage/report/doc-check/run/connect/describe/distribute/test/doctor/runs/upgrade/publish/graph/version
+└── cli/                     # CLI package — registry-routed command dispatch
+    ├── __init__.py          # Thin main() + backward-compat re-exports
+    ├── __main__.py          # python -m codeupipe.cli entry
+    ├── _registry.py         # CommandRegistry — routes command name → handler
+    ├── _templates.py        # 9 component template strings
+    ├── _scaffold.py         # scaffold engine, name utils, composed builder
+    ├── _bundle.py           # bundle engine
+    └── commands/            # One module per command group
+        ├── scaffold_cmds.py # new, list
+        ├── analysis_cmds.py # lint, coverage, report, doc-check
+        ├── run_cmds.py      # run, describe, graph, runs
+        ├── deploy_cmds.py   # deploy, recipe, init, ci
+        ├── connect_cmds.py  # connect, marketplace
+        ├── project_cmds.py  # test, doctor, upgrade, publish, version, bundle
+        ├── distribute_cmds.py # distribute checkpoint/remote/worker
+        └── auth_cmds.py     # auth login/status/revoke/list
 ```
 <!-- /cup:ref -->
 
@@ -306,7 +321,21 @@ codeupipe/
 
 ## CLI
 
-<!-- cup:ref file=codeupipe/cli.py symbols=main,scaffold,bundle,lint,coverage,report,doc_check hash=45440df -->
+<!-- cup:ref file=codeupipe/cli/__init__.py symbols=main hash=4691a2f -->
+<!-- cup:ref file=codeupipe/cli/__main__.py hash=eec6b5b -->
+<!-- cup:ref file=codeupipe/cli/_registry.py symbols=CommandRegistry hash=8e82ece -->
+<!-- cup:ref file=codeupipe/cli/_templates.py hash=c43b99a -->
+<!-- cup:ref file=codeupipe/cli/_scaffold.py symbols=scaffold,COMPONENT_TYPES hash=1f62e60 -->
+<!-- cup:ref file=codeupipe/cli/_bundle.py symbols=bundle hash=9a1b776 -->
+<!-- cup:ref file=codeupipe/cli/commands/__init__.py symbols=setup_all hash=1f2d6ed -->
+<!-- cup:ref file=codeupipe/cli/commands/scaffold_cmds.py hash=f410919 -->
+<!-- cup:ref file=codeupipe/cli/commands/analysis_cmds.py symbols=lint,coverage,report,doc_check hash=9d54f93 -->
+<!-- cup:ref file=codeupipe/cli/commands/run_cmds.py hash=1dbf404 -->
+<!-- cup:ref file=codeupipe/cli/commands/deploy_cmds.py hash=de213f2 -->
+<!-- cup:ref file=codeupipe/cli/commands/connect_cmds.py hash=973b453 -->
+<!-- cup:ref file=codeupipe/cli/commands/project_cmds.py hash=6bad64b -->
+<!-- cup:ref file=codeupipe/cli/commands/distribute_cmds.py hash=8cb53eb -->
+<!-- cup:ref file=codeupipe/cli/commands/auth_cmds.py hash=a0df015 -->
 | Command | Purpose |
 |---------|---------||
 | `cup new <type> <name> [path]` | Scaffold component + test |
@@ -336,6 +365,20 @@ codeupipe/
 | `cup auth list` | List all stored providers |
 | `--json` (global) | Machine-readable JSON output |
 <!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
+<!-- /cup:ref -->
 
 ---
 
@@ -356,7 +399,7 @@ codeupipe/
 
 ## Doctor
 
-<!-- cup:ref file=codeupipe/doctor.py symbols=diagnose hash=d159197 -->
+<!-- cup:ref file=codeupipe/doctor.py symbols=diagnose hash=36b8d51 -->
 | Export | Role |
 |--------|------|
 | `diagnose` | Run 6 project health checks (manifest, CI, tests, lint, connectors, docs) |
@@ -398,7 +441,7 @@ codeupipe/
 
 ## Auth (OAuth2 Integration)
 
-<!-- cup:ref file=codeupipe/auth/__init__.py hash=9c1e619 -->
+<!-- cup:ref file=codeupipe/auth/__init__.py hash=85c76a2 -->
 <!-- cup:ref file=codeupipe/auth/credential.py symbols=Credential,CredentialStore hash=c430594 -->
 <!-- cup:ref file=codeupipe/auth/provider.py symbols=AuthProvider,GoogleOAuth,GitHubOAuth hash=88a42c5 -->
 <!-- cup:ref file=codeupipe/auth/hook.py symbols=AuthHook hash=f2144d0 -->

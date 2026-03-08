@@ -94,6 +94,7 @@ class CheckSymbols:
                             "file": ref["file"],
                             "doc_path": ref["doc_path"],
                             "line": ref["line"],
+                            "content": ref.get("content", ""),
                         })
                     else:
                         members = _collect_class_members(tree, class_name)
@@ -103,6 +104,7 @@ class CheckSymbols:
                                 "file": ref["file"],
                                 "doc_path": ref["doc_path"],
                                 "line": ref["line"],
+                                "content": ref.get("content", ""),
                             })
                 else:
                     if symbol not in top_names:
@@ -111,6 +113,7 @@ class CheckSymbols:
                             "file": ref["file"],
                             "doc_path": ref["doc_path"],
                             "line": ref["line"],
+                            "content": ref.get("content", ""),
                         })
 
         return payload.insert("symbol_issues", issues)

@@ -1,11 +1,11 @@
 """MkDocs hook — copy every .md source as .txt in the built site.
 
 This makes the docs curl-friendly: ``curl .../concepts.txt`` returns the
-raw Markdown instead of the HTML wrapper.  A ``curl.txt`` sitemap and an
-``agents.txt`` navigation guide are also generated automatically.
+raw Markdown instead of the HTML wrapper.  A ``curl.txt`` sitemap is also
+generated automatically.  ``agents.txt`` is generated from ``agents.md``
+alongside all other pages.
 """
 
-import shutil
 from pathlib import Path
 
 
@@ -33,11 +33,6 @@ def on_post_build(config, **kwargs):
         original = md_file.read_text(encoding="utf-8")
         txt_dest.write_text(_AGENT_BANNER + original, encoding="utf-8")
         pages.append(str(rel.with_suffix(".txt")))
-
-    # Copy agents.txt verbatim (already well-formed, no banner needed)
-    agents_src = docs_dir / "agents.txt"
-    if agents_src.exists():
-        shutil.copy2(agents_src, site_dir / "agents.txt")
 
     # Generate curl sitemap
     lines = [

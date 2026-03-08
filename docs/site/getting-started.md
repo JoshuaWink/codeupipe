@@ -174,7 +174,7 @@ def test_my_filter():
 ```
 
 ```bash
-pytest  # 1382 tests
+pytest  # 1676 tests
 ```
 
 ## Next Steps

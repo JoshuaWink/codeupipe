@@ -1,0 +1,7 @@
+[project]
+name = "PROTOTYPE_NAME"
+version = "0.1.0"
+description = "Customer prototype built with codeupipe"
+
+[deploy]
+target = "docker"

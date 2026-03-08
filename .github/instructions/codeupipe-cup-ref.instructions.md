@@ -36,14 +36,14 @@ The `State` class tracks execution metadata...
 
 ### Hash-only (detect file changes, no symbol check)
 ```html
-<!-- cup:ref file=codeupipe/cli.py hash=d968d73 -->
+<!-- cup:ref file=codeupipe/cli/__init__.py hash=f0ebf6e -->
 The CLI supports `cup new`, `cup lint`, and `cup doc-check`...
 <!-- /cup:ref -->
 ```
 
 ### Full (both checks)
 ```html
-<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,assert_payload hash=7f2a1bc -->
+<!-- cup:ref file=codeupipe/testing.py symbols=run_filter,assert_payload hash=65f0296 -->
 Use `run_filter` and `assert_payload` from `codeupipe.testing`...
 <!-- /cup:ref -->
 ```

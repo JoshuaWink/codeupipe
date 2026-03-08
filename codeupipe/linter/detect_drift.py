@@ -39,6 +39,7 @@ class DetectDrift:
                     "current_hash": current_hash,
                     "doc_path": ref["doc_path"],
                     "line": ref["line"],
+                    "content": ref.get("content", ""),
                 })
 
         return payload.insert("drifted_refs", drifted)

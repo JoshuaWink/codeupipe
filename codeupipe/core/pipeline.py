@@ -52,6 +52,7 @@ class Pipeline(Generic[TInput, TOutput]):
         self._emitter: EventEmitter = EventEmitter()
         self._observe_timing: bool = False
         self._observe_lineage: bool = False
+        self._disabled_taps: frozenset = frozenset()  # runtime tap toggle
         # Govern — contracts
         self._require_input_keys: Optional[Set[str]] = None
         self._guarantee_output_keys: Optional[Set[str]] = None
@@ -181,6 +182,9 @@ class Pipeline(Generic[TInput, TOutput]):
                 _step_t0 = None
 
                 if step_type == "tap":
+                    if name in self._disabled_taps:
+                        self._state.mark_skipped(name)
+                        continue
                     await self._invoke(step.observe, payload)  # type: ignore
                     self._state.mark_executed(name)
                     continue
@@ -382,6 +386,11 @@ class Pipeline(Generic[TInput, TOutput]):
 
         # --- Tap: observe each chunk, pass through unchanged ---
         if step_type == "tap":
+            if name in self._disabled_taps:
+                self._state.mark_skipped(name)
+                async for chunk in upstream:
+                    yield chunk
+                return
             if name not in self._state.executed:
                 self._state.mark_executed(name)
             async for chunk in upstream:
