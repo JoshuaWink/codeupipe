@@ -1419,7 +1419,11 @@ def main(argv=None):
     init_parser.add_argument(
         "--ci",
         default="github",
-        choices=["github", "gitlab", "azure-devops", "bitbucket", "circleci"],
+        choices=[
+            "github", "gitlab", "azure-devops", "bitbucket", "circleci",
+            "jenkins", "forgejo", "gitea", "buildkite", "drone",
+            "woodpecker", "travis", "aws-codebuild", "cloud-build",
+        ],
         help="CI platform (default: github)",
     )
 

@@ -482,6 +482,274 @@ def _render_circleci_config(name: str, frontend: Optional[str] = None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_jenkins(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"// CI — {name}",
+        "pipeline {",
+        "    agent { docker { image 'python:3.12' } }",
+        "",
+        "    stages {",
+    ]
+
+    if frontend:
+        lines.extend([
+            "        stage('Frontend') {",
+            "            agent { docker { image 'node:20' } }",
+            "            steps {",
+            "                dir('frontend') {",
+            "                    sh 'npm ci'",
+            "                    sh 'npm run build'",
+            "                }",
+            "            }",
+            "        }",
+        ])
+
+    lines.extend([
+        "        stage('Install') {",
+        "            steps {",
+        "                sh \"pip install -e '.[dev]'\"",
+        "            }",
+        "        }",
+        "",
+        "        stage('Test') {",
+        "            matrix {",
+        "                axes {",
+        "                    axis {",
+        "                        name 'PYTHON_VERSION'",
+        "                        values '3.9', '3.12', '3.13'",
+        "                    }",
+        "                }",
+        "                agent { docker { image \"python:${PYTHON_VERSION}\" } }",
+        "                stages {",
+        "                    stage('Run') {",
+        "                        steps {",
+        "                            sh \"pip install -e '.[dev]'\"",
+        "                            sh 'python -m pytest -q'",
+        "                        }",
+        "                    }",
+        "                }",
+        "            }",
+        "        }",
+        "    }",
+        "}",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _render_forgejo_ci(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"name: CI — {name}",
+        "",
+        "on:",
+        "  push:",
+        "    branches: [main]",
+        "  pull_request:",
+        "    branches: [main]",
+        "",
+        "jobs:",
+        "  test:",
+        "    runs-on: ubuntu-latest",
+        "    strategy:",
+        "      matrix:",
+        '        python-version: ["3.9", "3.12", "3.13"]',
+        "    steps:",
+        "      - uses: actions/checkout@v4",
+        "      - uses: actions/setup-python@v5",
+        "        with:",
+        "          python-version: ${{ matrix.python-version }}",
+    ]
+
+    if frontend:
+        lines.extend([
+            "      - uses: actions/setup-node@v4",
+            "        with:",
+            '          node-version: "20"',
+            "      - run: cd frontend && npm ci",
+            "      - run: cd frontend && npm run build",
+        ])
+
+    lines.extend([
+        "      - run: pip install -e '.[dev]'",
+        "      - run: python -m pytest -q",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _render_gitea_ci(name: str, frontend: Optional[str] = None) -> str:
+    # Gitea Actions uses the same syntax as Forgejo/GitHub Actions
+    return _render_forgejo_ci(name, frontend)
+
+
+def _render_buildkite(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"# CI — {name}",
+        "",
+        "steps:",
+    ]
+
+    if frontend:
+        lines.extend([
+            "  - label: \":nodejs: Build frontend\"",
+            "    command:",
+            "      - cd frontend && npm ci && npm run build",
+            "    plugins:",
+            "      - docker#v5.11.0:",
+            "          image: node:20",
+            "",
+        ])
+
+    for ver in ("3.9", "3.12", "3.13"):
+        lines.extend([
+            f"  - label: \":python: {ver}\"",
+            "    command:",
+            "      - pip install -e '.[dev]'",
+            "      - python -m pytest -q",
+            "    plugins:",
+            "      - docker#v5.11.0:",
+            f"          image: python:{ver}",
+            "",
+        ])
+
+    return "\n".join(lines) + "\n"
+
+
+def _render_drone(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"# CI — {name}",
+        "",
+        "kind: pipeline",
+        "type: docker",
+        f"name: {name}",
+        "",
+        "trigger:",
+        "  branch:",
+        "    - main",
+        "",
+        "steps:",
+    ]
+
+    if frontend:
+        lines.extend([
+            "  - name: frontend",
+            "    image: node:20",
+            "    commands:",
+            "      - cd frontend && npm ci && npm run build",
+            "",
+        ])
+
+    for ver in ("3.9", "3.12", "3.13"):
+        lines.extend([
+            f"  - name: test-{ver}",
+            f"    image: python:{ver}",
+            "    commands:",
+            "      - pip install -e '.[dev]'",
+            "      - python -m pytest -q",
+            "",
+        ])
+
+    return "\n".join(lines) + "\n"
+
+
+def _render_woodpecker(name: str, frontend: Optional[str] = None) -> str:
+    # Woodpecker uses the same YAML syntax as Drone
+    return _render_drone(name, frontend)
+
+
+def _render_travis(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"# CI — {name}",
+        "",
+        "language: python",
+        "",
+        "python:",
+        '  - "3.9"',
+        '  - "3.12"',
+        '  - "3.13"',
+        "",
+    ]
+
+    if frontend:
+        lines.extend([
+            "before_install:",
+            "  - nvm install 20",
+            "  - nvm use 20",
+            "  - cd frontend && npm ci && npm run build && cd ..",
+            "",
+        ])
+
+    lines.extend([
+        "install:",
+        "  - pip install -e '.[dev]'",
+        "",
+        "script:",
+        "  - python -m pytest -q",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _render_aws_codebuild(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"# CI — {name}",
+        "",
+        "version: 0.2",
+        "",
+        "phases:",
+        "  install:",
+        "    runtime-versions:",
+        "      python: 3.12",
+    ]
+
+    if frontend:
+        lines.extend([
+            "      nodejs: 20",
+        ])
+
+    lines.append("    commands:")
+    lines.append("      - pip install -e '.[dev]'")
+
+    if frontend:
+        lines.extend([
+            "      - cd frontend && npm ci && npm run build && cd ..",
+        ])
+
+    lines.extend([
+        "  build:",
+        "    commands:",
+        "      - python -m pytest -q",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def _render_cloudbuild(name: str, frontend: Optional[str] = None) -> str:
+    lines = [
+        f"# CI — {name}",
+        "",
+        "steps:",
+    ]
+
+    if frontend:
+        lines.extend([
+            "  - name: node:20",
+            "    entrypoint: bash",
+            "    args:",
+            "      - -c",
+            "      - cd frontend && npm ci && npm run build",
+            "",
+        ])
+
+    for ver in ("3.9", "3.12", "3.13"):
+        lines.extend([
+            f"  - name: python:{ver}",
+            "    entrypoint: bash",
+            "    args:",
+            "      - -c",
+            "      - pip install -e '.[dev]' && python -m pytest -q",
+            "",
+        ])
+
+    return "\n".join(lines) + "\n"
+
+
 # Dispatcher: provider → (renderer, relative_dir, filename)
 _CI_PROVIDERS = {
     "github": (_render_github_ci, ".github/workflows", "ci.yml"),
@@ -489,6 +757,15 @@ _CI_PROVIDERS = {
     "azure-devops": (_render_azure_pipelines, ".", "azure-pipelines.yml"),
     "bitbucket": (_render_bitbucket_pipelines, ".", "bitbucket-pipelines.yml"),
     "circleci": (_render_circleci_config, ".circleci", "config.yml"),
+    "jenkins": (_render_jenkins, ".", "Jenkinsfile"),
+    "forgejo": (_render_forgejo_ci, ".forgejo/workflows", "ci.yml"),
+    "gitea": (_render_gitea_ci, ".gitea/workflows", "ci.yml"),
+    "buildkite": (_render_buildkite, ".buildkite", "pipeline.yml"),
+    "drone": (_render_drone, ".", ".drone.yml"),
+    "woodpecker": (_render_woodpecker, ".", ".woodpecker.yml"),
+    "travis": (_render_travis, ".", ".travis.yml"),
+    "aws-codebuild": (_render_aws_codebuild, ".", "buildspec.yml"),
+    "cloud-build": (_render_cloudbuild, ".", "cloudbuild.yaml"),
 }
 
 CI_PROVIDERS = list(_CI_PROVIDERS.keys())

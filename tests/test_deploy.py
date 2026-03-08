@@ -924,7 +924,7 @@ class TestCIProviders:
 
     def test_ci_providers_export(self):
         from codeupipe.deploy import CI_PROVIDERS
-        assert len(CI_PROVIDERS) == 5
+        assert len(CI_PROVIDERS) == 14
 
     # ── Default (GitHub) unchanged ──────────────────────────────────
 
@@ -1079,7 +1079,7 @@ class TestCIProviders:
     def test_invalid_ci_provider(self, tmp_path):
         from codeupipe.deploy.init import init_project, InitError
         with pytest.raises(InitError, match="Unknown CI provider"):
-            init_project("api", "bad-ci", str(tmp_path / "bad-ci"), ci_provider="jenkins")
+            init_project("api", "bad-ci", str(tmp_path / "bad-ci"), ci_provider="teamcity")
 
     # ── CLI --ci flag ───────────────────────────────────────────────
 
@@ -1117,6 +1117,297 @@ class TestCIProviders:
         result = main(["init", "api", "cli-default"])
         assert result == 0
         assert (tmp_path / "cli-default" / ".github" / "workflows" / "ci.yml").exists()
+
+    # ── Jenkins ─────────────────────────────────────────────────────
+
+    def test_jenkins_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "jk-proj", str(tmp_path / "jk-proj"), ci_provider="jenkins")
+        assert (tmp_path / "jk-proj" / "Jenkinsfile").exists()
+
+    def test_jenkins_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "jk-proj2", str(tmp_path / "jk-proj2"), ci_provider="jenkins")
+        text = (tmp_path / "jk-proj2" / "Jenkinsfile").read_text()
+        assert "pipeline {" in text
+        assert "pytest" in text
+        assert "3.9" in text
+        assert "3.13" in text
+
+    def test_jenkins_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "jk-fe", str(tmp_path / "jk-fe"), ci_provider="jenkins", frontend="react")
+        text = (tmp_path / "jk-fe" / "Jenkinsfile").read_text()
+        assert "npm ci" in text
+
+    def test_jenkins_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "jk-no-gh", str(tmp_path / "jk-no-gh"), ci_provider="jenkins")
+        assert not (tmp_path / "jk-no-gh" / ".github").exists()
+
+    # ── Forgejo ─────────────────────────────────────────────────────
+
+    def test_forgejo_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "fg-proj", str(tmp_path / "fg-proj"), ci_provider="forgejo")
+        assert (tmp_path / "fg-proj" / ".forgejo" / "workflows" / "ci.yml").exists()
+
+    def test_forgejo_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "fg-proj2", str(tmp_path / "fg-proj2"), ci_provider="forgejo")
+        text = (tmp_path / "fg-proj2" / ".forgejo" / "workflows" / "ci.yml").read_text()
+        assert "actions/checkout" in text
+        assert "pytest" in text
+        assert "3.9" in text
+
+    def test_forgejo_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "fg-fe", str(tmp_path / "fg-fe"), ci_provider="forgejo", frontend="react")
+        text = (tmp_path / "fg-fe" / ".forgejo" / "workflows" / "ci.yml").read_text()
+        assert "setup-node" in text
+
+    def test_forgejo_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "fg-no-gh", str(tmp_path / "fg-no-gh"), ci_provider="forgejo")
+        assert not (tmp_path / "fg-no-gh" / ".github").exists()
+
+    # ── Gitea ───────────────────────────────────────────────────────
+
+    def test_gitea_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gt-proj", str(tmp_path / "gt-proj"), ci_provider="gitea")
+        assert (tmp_path / "gt-proj" / ".gitea" / "workflows" / "ci.yml").exists()
+
+    def test_gitea_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gt-proj2", str(tmp_path / "gt-proj2"), ci_provider="gitea")
+        text = (tmp_path / "gt-proj2" / ".gitea" / "workflows" / "ci.yml").read_text()
+        assert "actions/checkout" in text
+        assert "pytest" in text
+
+    def test_gitea_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gt-no-gh", str(tmp_path / "gt-no-gh"), ci_provider="gitea")
+        assert not (tmp_path / "gt-no-gh" / ".github").exists()
+
+    # ── Buildkite ───────────────────────────────────────────────────
+
+    def test_buildkite_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bk-proj", str(tmp_path / "bk-proj"), ci_provider="buildkite")
+        assert (tmp_path / "bk-proj" / ".buildkite" / "pipeline.yml").exists()
+
+    def test_buildkite_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bk-proj2", str(tmp_path / "bk-proj2"), ci_provider="buildkite")
+        text = (tmp_path / "bk-proj2" / ".buildkite" / "pipeline.yml").read_text()
+        assert "steps:" in text
+        assert "pytest" in text
+        assert "3.9" in text
+        assert "3.13" in text
+
+    def test_buildkite_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bk-fe", str(tmp_path / "bk-fe"), ci_provider="buildkite", frontend="react")
+        text = (tmp_path / "bk-fe" / ".buildkite" / "pipeline.yml").read_text()
+        assert "npm ci" in text
+        assert "node:20" in text
+
+    def test_buildkite_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "bk-no-gh", str(tmp_path / "bk-no-gh"), ci_provider="buildkite")
+        assert not (tmp_path / "bk-no-gh" / ".github").exists()
+
+    # ── Drone ───────────────────────────────────────────────────────
+
+    def test_drone_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "dr-proj", str(tmp_path / "dr-proj"), ci_provider="drone")
+        assert (tmp_path / "dr-proj" / ".drone.yml").exists()
+
+    def test_drone_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "dr-proj2", str(tmp_path / "dr-proj2"), ci_provider="drone")
+        text = (tmp_path / "dr-proj2" / ".drone.yml").read_text()
+        assert "kind: pipeline" in text
+        assert "pytest" in text
+        assert "3.9" in text
+
+    def test_drone_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "dr-fe", str(tmp_path / "dr-fe"), ci_provider="drone", frontend="react")
+        text = (tmp_path / "dr-fe" / ".drone.yml").read_text()
+        assert "npm ci" in text
+        assert "node:20" in text
+
+    def test_drone_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "dr-no-gh", str(tmp_path / "dr-no-gh"), ci_provider="drone")
+        assert not (tmp_path / "dr-no-gh" / ".github").exists()
+
+    # ── Woodpecker ──────────────────────────────────────────────────
+
+    def test_woodpecker_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "wp-proj", str(tmp_path / "wp-proj"), ci_provider="woodpecker")
+        assert (tmp_path / "wp-proj" / ".woodpecker.yml").exists()
+
+    def test_woodpecker_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "wp-proj2", str(tmp_path / "wp-proj2"), ci_provider="woodpecker")
+        text = (tmp_path / "wp-proj2" / ".woodpecker.yml").read_text()
+        assert "kind: pipeline" in text
+        assert "pytest" in text
+
+    def test_woodpecker_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "wp-no-gh", str(tmp_path / "wp-no-gh"), ci_provider="woodpecker")
+        assert not (tmp_path / "wp-no-gh" / ".github").exists()
+
+    # ── Travis CI ───────────────────────────────────────────────────
+
+    def test_travis_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "tv-proj", str(tmp_path / "tv-proj"), ci_provider="travis")
+        assert (tmp_path / "tv-proj" / ".travis.yml").exists()
+
+    def test_travis_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "tv-proj2", str(tmp_path / "tv-proj2"), ci_provider="travis")
+        text = (tmp_path / "tv-proj2" / ".travis.yml").read_text()
+        assert "language: python" in text
+        assert "pytest" in text
+        assert "3.9" in text
+        assert "3.13" in text
+
+    def test_travis_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "tv-fe", str(tmp_path / "tv-fe"), ci_provider="travis", frontend="react")
+        text = (tmp_path / "tv-fe" / ".travis.yml").read_text()
+        assert "npm ci" in text
+
+    def test_travis_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "tv-no-gh", str(tmp_path / "tv-no-gh"), ci_provider="travis")
+        assert not (tmp_path / "tv-no-gh" / ".github").exists()
+
+    # ── AWS CodeBuild ───────────────────────────────────────────────
+
+    def test_aws_codebuild_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "aws-proj", str(tmp_path / "aws-proj"), ci_provider="aws-codebuild")
+        assert (tmp_path / "aws-proj" / "buildspec.yml").exists()
+
+    def test_aws_codebuild_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "aws-proj2", str(tmp_path / "aws-proj2"), ci_provider="aws-codebuild")
+        text = (tmp_path / "aws-proj2" / "buildspec.yml").read_text()
+        assert "version: 0.2" in text
+        assert "phases:" in text
+        assert "runtime-versions:" in text
+        assert "pytest" in text
+
+    def test_aws_codebuild_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "aws-fe", str(tmp_path / "aws-fe"), ci_provider="aws-codebuild", frontend="react")
+        text = (tmp_path / "aws-fe" / "buildspec.yml").read_text()
+        assert "nodejs: 20" in text
+        assert "npm ci" in text
+
+    def test_aws_codebuild_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "aws-no-gh", str(tmp_path / "aws-no-gh"), ci_provider="aws-codebuild")
+        assert not (tmp_path / "aws-no-gh" / ".github").exists()
+
+    # ── Google Cloud Build ──────────────────────────────────────────
+
+    def test_cloudbuild_file_location(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gcb-proj", str(tmp_path / "gcb-proj"), ci_provider="cloud-build")
+        assert (tmp_path / "gcb-proj" / "cloudbuild.yaml").exists()
+
+    def test_cloudbuild_content(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gcb-proj2", str(tmp_path / "gcb-proj2"), ci_provider="cloud-build")
+        text = (tmp_path / "gcb-proj2" / "cloudbuild.yaml").read_text()
+        assert "steps:" in text
+        assert "pytest" in text
+        assert "python:3.9" in text
+        assert "python:3.13" in text
+
+    def test_cloudbuild_with_frontend(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gcb-fe", str(tmp_path / "gcb-fe"), ci_provider="cloud-build", frontend="react")
+        text = (tmp_path / "gcb-fe" / "cloudbuild.yaml").read_text()
+        assert "node:20" in text
+        assert "npm ci" in text
+
+    def test_cloudbuild_no_github_dir(self, tmp_path):
+        from codeupipe.deploy.init import init_project
+        init_project("api", "gcb-no-gh", str(tmp_path / "gcb-no-gh"), ci_provider="cloud-build")
+        assert not (tmp_path / "gcb-no-gh" / ".github").exists()
+
+    # ── Full provider count ─────────────────────────────────────────
+
+    def test_total_ci_providers(self):
+        from codeupipe.deploy.init import CI_PROVIDERS
+        assert len(CI_PROVIDERS) == 14
+
+    # ── CLI for new providers ───────────────────────────────────────
+
+    def test_cli_init_with_jenkins(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-jk", "--ci", "jenkins"]) == 0
+        assert (tmp_path / "cli-jk" / "Jenkinsfile").exists()
+
+    def test_cli_init_with_forgejo(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-fg", "--ci", "forgejo"]) == 0
+        assert (tmp_path / "cli-fg" / ".forgejo" / "workflows" / "ci.yml").exists()
+
+    def test_cli_init_with_gitea(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-gt", "--ci", "gitea"]) == 0
+        assert (tmp_path / "cli-gt" / ".gitea" / "workflows" / "ci.yml").exists()
+
+    def test_cli_init_with_buildkite(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-bk", "--ci", "buildkite"]) == 0
+        assert (tmp_path / "cli-bk" / ".buildkite" / "pipeline.yml").exists()
+
+    def test_cli_init_with_drone(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-dr", "--ci", "drone"]) == 0
+        assert (tmp_path / "cli-dr" / ".drone.yml").exists()
+
+    def test_cli_init_with_woodpecker(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-wp", "--ci", "woodpecker"]) == 0
+        assert (tmp_path / "cli-wp" / ".woodpecker.yml").exists()
+
+    def test_cli_init_with_travis(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-tv", "--ci", "travis"]) == 0
+        assert (tmp_path / "cli-tv" / ".travis.yml").exists()
+
+    def test_cli_init_with_aws_codebuild(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-aws", "--ci", "aws-codebuild"]) == 0
+        assert (tmp_path / "cli-aws" / "buildspec.yml").exists()
+
+    def test_cli_init_with_cloud_build(self, tmp_path, monkeypatch):
+        from codeupipe.cli import main
+        monkeypatch.chdir(tmp_path)
+        assert main(["init", "api", "cli-gcb", "--ci", "cloud-build"]) == 0
+        assert (tmp_path / "cli-gcb" / "cloudbuild.yaml").exists()
 
 
 # ── Exports Ring 7b ─────────────────────────────────────────────────
