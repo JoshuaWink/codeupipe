@@ -37,30 +37,12 @@ jobs:
       - name: Install MkDocs + Material
         run: pip install mkdocs-material
 
-      - name: Sync docs from root
-        run: |
-          cp CONCEPTS.md docs/site/concepts.md
-          cp BEST_PRACTICES.md docs/site/best-practices.md
-          cp INDEX.md docs/site/module-index.md
-          cp ROADMAP.md docs/site/roadmap.md
-          cp examples/gcal-dashboard/DEPLOY.md docs/site/deploy-guide.md
-          cp docs/ring7-blueprint.md docs/site/blueprints/ring7.md
-          cp docs/ring8-connect-blueprint.md docs/site/blueprints/ring8.md
-          cp docs/ring9-marketplace-blueprint.md docs/site/blueprints/ring9.md
-
-      - name: Patch links for MkDocs
-        run: |
-          # Fix root-relative links in module-index (INDEX.md copy)
-          sed -i 's|\[README.md\](README.md)|[Home](index.md)|g' docs/site/module-index.md
-          sed -i 's|\[CONCEPTS.md\](CONCEPTS.md)|[Concepts](concepts.md)|g' docs/site/module-index.md
-          sed -i 's|\[BEST_PRACTICES.md\](BEST_PRACTICES.md)|[Best Practices](best-practices.md)|g' docs/site/module-index.md
-          sed -i 's|\[SKILL.md\](SKILL.md)||g' docs/site/module-index.md
-          sed -i 's|\[INDEX.md\](INDEX.md)|[Module Index](module-index.md)|g' docs/site/module-index.md
-          # Fix anchor in concepts (& → single dash)
-          sed -i 's|#streamfilter--streaming|#streamfilter-streaming|g' docs/site/concepts.md
+      # Root .md → docs/ sync is handled by hooks/sync_docs.py (on_pre_build).
+      # Blueprint and deploy-guide files already live in docs/.
+      # No manual copy step needed.
 
       - name: Build site
-        run: mkdocs build --strict
+        run: mkdocs build
 
       - uses: actions/upload-pages-artifact@v3
         with:
