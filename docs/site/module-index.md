@@ -243,7 +243,7 @@ codeupipe/
 ## Marketplace (Ring 9)
 
 <!-- cup:ref file=codeupipe/marketplace/__init__.py hash=4dc7675 -->
-<!-- cup:ref file=codeupipe/marketplace/index.py symbols=fetch_index,search,info,MarketplaceError hash=57b4f59 -->
+<!-- cup:ref file=codeupipe/marketplace/index.py symbols=fetch_index,search,info,MarketplaceError hash=c05c5ff -->
 | Type | Source | Role |
 |------|--------|------|
 | `fetch_index` | marketplace/index.py | Fetch & cache marketplace JSON index |

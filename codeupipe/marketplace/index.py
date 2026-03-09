@@ -15,10 +15,10 @@ from urllib.request import Request, urlopen
 
 __all__ = ["fetch_index", "search", "info", "MarketplaceError"]
 
-# Default index URL — raw GitHub JSON from the codeupipe repo
+# Default index URL — raw GitHub JSON from the standalone marketplace repo
 INDEX_URL = (
-    "https://raw.githubusercontent.com/codeuchain/codeupipe/"
-    "main/marketplace/index.json"
+    "https://raw.githubusercontent.com/codeuchain/codeupipe-marketplace/"
+    "main/index.json"
 )
 
 # Cache lives under ~/.codeupipe/marketplace/
