@@ -7,6 +7,19 @@ hide:
 
 **Python pipeline framework — composable Payload → Filter → Pipeline pattern with streaming. Zero external dependencies.**
 
+<div class="marketplace-banner" markdown>
+<div class="banner-content" markdown>
+
+:material-store:{ .banner-icon } **Marketplace is Live!** Browse connectors, filters, and hooks built by the community.
+
+<div class="banner-actions" markdown>
+[:material-arrow-right: Browse Marketplace](https://codeuchain.github.io/codeupipe-marketplace/){ .md-button .md-button--primary }
+[:material-plus-circle: Submit a Component](https://github.com/codeuchain/codeupipe-marketplace/blob/main/CONTRIBUTING.md){ .md-button }
+</div>
+
+</div>
+</div>
+
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch:{ .lg .middle } **Get Started in 5 Minutes**

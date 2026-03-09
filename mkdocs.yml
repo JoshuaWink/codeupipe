@@ -54,6 +54,7 @@ nav:
       - "Ring 7 — Deploy": blueprints/ring7.md
       - "Ring 8 — Connect": blueprints/ring8.md
       - "Ring 9 — Marketplace": blueprints/ring9.md
+  - Marketplace: https://codeuchain.github.io/codeupipe-marketplace/
 
 markdown_extensions:
   - attr_list
