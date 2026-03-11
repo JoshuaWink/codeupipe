@@ -1,0 +1,87 @@
+{
+  "target": "http://127.0.0.1:8421",
+  "timestamp": "2026-03-11T00:30:01.695534+00:00",
+  "summary": {
+    "grade": "pass",
+    "checks_passed": 7,
+    "checks_total": 7,
+    "checks": [
+      {
+        "name": "latency:/",
+        "status": "pass",
+        "detail": "p95=0.41ms"
+      },
+      {
+        "name": "errors:/",
+        "status": "pass",
+        "detail": "error_rate=0.0%"
+      },
+      {
+        "name": "latency:/api/providers",
+        "status": "pass",
+        "detail": "p95=0.29ms"
+      },
+      {
+        "name": "errors:/api/providers",
+        "status": "pass",
+        "detail": "error_rate=0.0%"
+      },
+      {
+        "name": "bundle_size",
+        "status": "pass",
+        "detail": "23306 bytes"
+      },
+      {
+        "name": "bundle_threshold",
+        "status": "pass",
+        "detail": "Within threshold"
+      },
+      {
+        "name": "uptime",
+        "status": "pass",
+        "detail": "100.0%"
+      }
+    ]
+  },
+  "latency": {
+    "/": {
+      "min_ms": 0.26,
+      "max_ms": 10.47,
+      "avg_ms": 1.31,
+      "p95_ms": 0.41,
+      "p99_ms": 0.41,
+      "count": 10,
+      "error_count": 0
+    },
+    "/api/providers": {
+      "min_ms": 0.24,
+      "max_ms": 0.4,
+      "avg_ms": 0.27,
+      "p95_ms": 0.29,
+      "p99_ms": 0.29,
+      "count": 10,
+      "error_count": 0
+    }
+  },
+  "bundle": {
+    "total_bytes": 23306,
+    "file_count": 1,
+    "by_extension": {
+      ".html": 23306
+    },
+    "largest_files": [
+      [
+        "index.html",
+        23306
+      ]
+    ],
+    "over_threshold": false
+  },
+  "health": {
+    "uptime_pct": 100.0,
+    "total_polls": 5,
+    "successful_polls": 5,
+    "failed_polls": 0,
+    "avg_response_ms": 1.51
+  }
+}

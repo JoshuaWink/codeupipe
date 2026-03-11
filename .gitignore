@@ -42,3 +42,4 @@ docs/roadmap.md
 prototypes/*/
 !prototypes/_template/
 !prototypes/README.md
+!prototypes/metrics/
